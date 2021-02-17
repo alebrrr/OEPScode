@@ -2,7 +2,7 @@
 
 preprocessing-pipeline contains all functions necessary to go from OEPS binaries to MNE objects.
 
-OEPS creates a folder with input subject name and timestamp on OEPS computer. 
+When recording OEPS creates a folder with input subject name and timestamp on OEPS computer. 
 This folder contains all recordings for one continuous data streaming session (one recording= one labplatform experiment, the experiment starts and stops recording with sustained trigger). 
 
 in OEPS'structure "experiment" is one data streaming session, with multiple recordings, which is confusing. in the code I refer to OEPS "experiments" as "sessions" but I do not change folder naming.
