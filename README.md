@@ -9,3 +9,5 @@ in OEPS'structure "experiment" is one data streaming session, with multiple reco
 
 prior to any processing the subject named OEPS folder with all its subfolders is moved to the storage (I am putting them in alessandro/mea). h5 file on tdt computer is moved in corresponding "recording" folder.
 prova is a binary of downsampled data. OpenEphys.py one of the original OEPS scrypt for reading data. run_pipeline is scraps, code I used to make plots and calculate snr in a pinch.
+
+channelsH32M contains relative channel positions (sphere with r 1). channelsH32Mabs contains positions in millimiters.
