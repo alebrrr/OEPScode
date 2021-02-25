@@ -256,7 +256,12 @@ def Omitter(h5file):
     dd=np.max(leftarr[:,375:625],1)
     uu=dd>100
     return uu
-
+def scaler(my_diction):  
+    total = 0  
+     
+    for j in my_diction:  
+        my_diction[j] = (my_diction[j])/1000
+    return my_diction
 def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8): 
         """
             this method gets the data into an Mne raw object
@@ -298,7 +303,19 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8):
 # unfilt=np.delete(unfilt,[7,24],0)
 # filtt=np.delete(filtt,[7,24],0)
         if len(datad)==30:#channel names for all 30
-            ch_names = ['F3', 'D2', 'E2', 'F2','D1', 'E1', 'F1','E3', 'D3', 'E4', 'D4','E5', 'D5', 'E6', 'D6','C6', 'B6', 'C5', 'B5','C4', 'B4', 'C3', 'B3', 'A1', 'B1', 'C1','A2', 'B2', 'C2', 'A3']
+            import pandas as pd
+
+            df = pd.read_csv('channelsH32Mabs.txt')
+            ch_names = df.name.to_list()
+
+            pos = df[['z','x','y']].values
+            dig_ch_pos = dict(zip(ch_names,pos))
+            scaler(dig_ch_pos)
+            nasion= [-0.007, 0, -0.001]
+            lpa= [0.000, -0.005, -0.001]
+            rpa=[0.000, 0.005, -0.001]
+            montage = mne.channels.make_dig_montage(ch_pos=dig_ch_pos,nasion=nasion,lpa=lpa,rpa=rpa)
+                        
             ch_types = ['eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg']
         else: #channel names for pooled channels
             ch_names = ['front_left','front_right','cent_right','cent_left','post_right','post_left','central','post_cent']
@@ -311,6 +328,7 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8):
         events=events.astype(int)
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
         raw = mne.io.RawArray(datad, info)
+        raw=raw.set_montage(montage)
         events=events.astype(int)
         return raw,events
         
