@@ -1,9 +1,17 @@
-"""
-all these functions rely on filenames and folders retaining the structure set by oeps. h5 files of a certain recording-experiment must be put in the corresponding recordingN (e.g. recording5) folder.
-"""
+
+from mne import set_eeg_reference, events_from_annotations
+from mne.epochs import Epochs
+from autoreject import AutoReject, Ransac
+import numpy as np
+from mne.preprocessing.ica import ICA, corrmap, read_ica
+import os
+from pathlib import Path
+from matplotlib import pyplot as plt, patches
+
 
 def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101", session=1,newfreq=500, recording=10, mainevent=8):
     """
+    all these functions rely on filenames and folders retaining the structure set by oeps. h5 files of a certain recording-experiment must be put in the corresponding recordingN (e.g. recording5) folder.
 
     This function lods OEPS data. folder structure needs to be the original OEPS one. Mainevent is key for trial presentation indipendent from  experiment type
     
@@ -153,7 +161,7 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
     
     myfile=filenamex[:-3]+str(newfreq)+'_dwnsmpl.npy'#this is to average together channels as indicated in the top list (channelmap). looked weird when i actually used these data TODO look into averaging together neighboring channels to go from 30 to 8
   
-    myfilec=filenamex[:-3]+'_dwnsmpl_all_channels.npy'#
+    myfilec=filenamex[:-3]+'_dwnsmpl_all_channels.npy'#TODO: this data/datar stuff is very confusing and needs to go . the different channels can be accorpated later if at all
     from pathlib import Path
 
     my_file = Path(myfile)
@@ -168,7 +176,8 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
         if f!=newfreq:
             data= data[::int(f/newfreq),:32]#downsample from 30k
             f=newfreq
-            
+        data= data[:,:32]#cut dac channels
+    
         data=np.delete(data,[7,24],1)#get rid of non-channels
         datar=np.zeros((len(data),len(channelmap)))
         for i,d in enumerate(channelmap):
@@ -324,7 +333,7 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8):
             
         
 
-        events=np.concatenate((eventstsp/(oldfreq/sfreq)+30,ggg,dd),1)#30 is fixed from rcx delay. here we get events in shape required from mne (1st column timestamps, second zeros, third ones)
+        events=np.concatenate((eventstsp/(oldfreq/sfreq)+int(np.ceil((310/4882.8125)*sfreq)),ggg,dd),1)# here we get events in shape required from mne (1st column timestamps, second zeros, third ones)
         events=events.astype(int)
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
         raw = mne.io.RawArray(datad, info)
@@ -333,16 +342,6 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8):
         return raw,events
         
         
-from mne import set_eeg_reference, events_from_annotations
-from mne.epochs import Epochs
-from autoreject import AutoReject, Ransac
-import numpy as np
-from mne.preprocessing.ica import ICA, corrmap, read_ica
-import os
-from pathlib import Path
-from matplotlib import pyplot as plt, patches
-
-
 
         
 def find_peaks(data, min_dist=1, thresh=0.3, degree=None):
@@ -683,3 +682,5 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first
 #run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)#
 #run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=2)
 #run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOANONSOA_2020-11-16_15-14-52_m0002\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)
+# folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
+# indexo,filenamex,soa, stimdur,mean,data,datar,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=3)#get data
