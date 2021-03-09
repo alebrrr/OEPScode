@@ -7,6 +7,7 @@ from mne.preprocessing.ica import ICA, corrmap, read_ica
 import os
 from pathlib import Path
 from matplotlib import pyplot as plt, patches
+import mne
 
 
 def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101", session=1,newfreq=500, recording=10, mainevent=8):
@@ -161,15 +162,13 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
     
     myfile=filenamex[:-3]+str(newfreq)+'_dwnsmpl.npy'#this is to average together channels as indicated in the top list (channelmap). looked weird when i actually used these data TODO look into averaging together neighboring channels to go from 30 to 8
   
-    myfilec=filenamex[:-3]+'_dwnsmpl_all_channels.npy'#TODO: this data/datar stuff is very confusing and needs to go . the different channels can be accorpated later if at all
     from pathlib import Path
 
     my_file = Path(myfile)
     if my_file.is_file():
         print('load downsampled file')
 
-        data=np.load(myfilec)
-        datar=np.load(myfile)
+        data=np.load(myfile)
         f=newfreq
     else:
         print('saving downsampled file')#if frequency is not newfreq hz data are downsampled to newfreq
@@ -179,16 +178,12 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
         data= data[:,:32]#cut dac channels
     
         data=np.delete(data,[7,24],1)#get rid of non-channels
-        datar=np.zeros((len(data),len(channelmap)))
-        for i,d in enumerate(channelmap):
-            datar[:,i]=data[:,d].mean(1)
+
             
         data=(data*0.195/1000000)#convert bits to microvolt and microvolt to volt. "The raw data are saved as signed 16-bit integers, in the range -32768 to 32767. They don’t have a unit. To convert to microvolts, just  multiply by 0.195, as you noted. This scales the data into the range ±6.390 mV, with 0.195 µV resolution (Intan chips have a ±5 mV input range).""
-        datar=(datar*0.195/1000000)#convert bits to microvolt and microvolt to volt. THIS GETS DATA IN ACTUAL MEMORY; TAKES TIME
+# THIS GETS DATA IN ACTUAL MEMORY; TAKES TIME
         data=data-data.mean(0)#baseline
-        datar=datar-datar.mean(0)
-        np.save(myfile, datar)
-        np.save(myfilec, data)
+        np.save(myfile, data)
     
     h5file=sorted(glob(Folder+'/experiment'+str(session)+'/recording'+str(recording)+'/**/*.h5', recursive=True))#this is the file from the tdt side. they are put by hand in the recordingn folder after data collection
     import tables
@@ -200,25 +195,17 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
             omiss=True  
             indexo=Omitter(h5file[0])#get index of omissions from recorded audio signal. this allows to check for discrepancies from index (there should be none if the computer is not used during recording)
     except Exception:#in case the h5 file is damaged or does not exist.
-        soa=((len(datar)/(newfreq**2)))
+        soa=((len(data)/(newfreq**2)))
         stimdur=0.109 
+    tstp=tstp-tstp[0]
     index=tstp[ttl]/(oldfreq/newfreq)#downsample timestamps
-    index=index-index[0]
-    if index[-1]+chunk>len(datar):#hack  if recording happens to be a datapoint too short last trial is deleted.
+    if index[-1]+chunk>len(data):#hack  if recording happens to be a datapoint too short last trial is deleted.
             index=np.delete(index,len(index)-1)    
-            deletable=np.argwhere((tstp-tstp[0])/int(oldfreq/newfreq)+chunk>len(datar))
+            deletable=np.argwhere((tstp-tstp[0])/int(oldfreq/newfreq)+chunk>len(data))
             tstp=np.delete(tstp,deletable)
             ttll=np.delete(ttll,deletable)
-    u=[]  #these following loops are to average epochs , the purpose being having quick way to look at erp after recording session
-    for iz in range (0,len(datar[1,:])):
-        m=[]
-     
-        for i in range(0,len(index)):
-           m.append(datar[int(index[i]):int(index[i])+chunk,iz])
-    
-        u.append(sum(m)/len(m)-sum(sum(m))/(len(m)*len(sum(m))))
-        
-        v=[]
+    v=[]  #these following loops are to average epochs , the purpose being having quick way to look at erp after recording session
+
     for iz in range (0,len(data[1,:])):
         n=[]
         
@@ -233,7 +220,7 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
     triggers=ttll
     sfreq=f
     timestamps=tstp
-    return indexo,filenamex,soa,stimdur,mean,data,datar,triggers,timestamps,sfreq,oldfreq
+    return indexo,filenamex,soa,stimdur,mean,data,triggers,timestamps,sfreq,oldfreq
 #indexo: stimulus index if mmn from h5. filename. stimulus onset async from h5. stimulus duration from h5. mean=averaged epoched traces, data = downsampled data, datar= downsampled data iwth channels averaged in groups (left front ecc). triggers= trigger events index for timestamps in teimestams, sfrequ is sampling freq should always be newfreq at this pint
     
 
@@ -265,13 +252,13 @@ def Omitter(h5file):
     dd=np.max(leftarr[:,375:625],1)
     uu=dd>100
     return uu
-def scaler(my_diction):  
+def scaler(my_diction,factor=50):  
     total = 0  
      
     for j in my_diction:  
-        my_diction[j] = (my_diction[j])/1000
+        my_diction[j] = (my_diction[j])/factor
     return my_diction
-def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8): 
+def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8, scale_factorX=50, scale_factorDIV=50): 
         """
             this method gets the data into an Mne raw object
 
@@ -286,12 +273,13 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8):
     sfreq : data sampling frequency, int
     oldfreq : original data sampling frequency. 
     trialevent : what int corresponds to trial event in triggers
-
+    scale_factorX:factor to multiply nas and ear points for digmontage. (now expressed in meters, with actual values in the order of millimiters)
+    scale_factorDIV:factor to input to scaler for the channel positions. (now expressed in mm) 
     Returns
     -------
     raw objects and event array to make epochs
     """
-            
+           #TODO. RIGHT NOW i AM DIVIDING THE ch position values IN millimiters BY 50, and also  multiplying the nas +ear values in meters by 50, in order to get a sensible topomap.   counterintuitive.
         import mne
         datad=np.transpose(datar[:,:len(datar[1,:])])#transpose raw data as per mne requirment
         timstp=timestamps-timestamps[0]#zero timestamps to start of recording
@@ -319,10 +307,10 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8):
 
             pos = df[['z','x','y']].values
             dig_ch_pos = dict(zip(ch_names,pos))
-            scaler(dig_ch_pos)
-            nasion= [-0.007, 0, -0.001]
-            lpa= [0.000, -0.005, -0.001]
-            rpa=[0.000, 0.005, -0.001]
+            scaler(dig_ch_pos,scale_factorDIV)
+            nasion= [-0.007*scale_factorX, 0*scale_factorX, -0.001*scale_factorX]
+            lpa= [0.000*scale_factorX, -0.005*scale_factorX, -0.001*scale_factorX]
+            rpa=[0.000*scale_factorX, 0.005*scale_factorX, -0.001*scale_factorX]
             montage = mne.channels.make_dig_montage(ch_pos=dig_ch_pos,nasion=nasion,lpa=lpa,rpa=rpa)
                         
             ch_types = ['eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg']
@@ -684,3 +672,23 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first
 #run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOANONSOA_2020-11-16_15-14-52_m0002\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)
 # folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
 # indexo,filenamex,soa, stimdur,mean,data,datar,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=3)#get data
+            
+folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
+indexo,filenamex,soa, stimdur,mean,data,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=4, newfreq=5000)#get data
+import matplotlib.pyplot as plt
+raw,events=MNEify(indexo,data,timestamps,triggers,sfreq,oldfreq=5000)
+raw=filtering(raw, notch=50, highpass=None, lowpass=None,
+      fir_window="hamming", fir_design="firwin")
+raw=filtering(raw, notch=None, highpass=None, lowpass=100,
+      fir_window="hamming", fir_design="firwin")
+epochs = mne.Epochs(raw, events, tmin= 0, reject=None, baseline=None, preload=True, flat = None, proj=False,reject_by_annotation=False)
+
+#dropping=[]
+
+epoched=np.array(epochs) 
+evoked=epochs.average()
+# evoked.plot()
+# ts_args = dict(time_unit='s')
+# topomap_args = dict(sensors=True, time_unit='s')
+# evoked.plot_joint(title='right auditory',
+#                         ts_args=ts_args, topomap_args=topomap_args)
