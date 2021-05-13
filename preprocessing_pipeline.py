@@ -1,7 +1,6 @@
-
 from mne import set_eeg_reference, events_from_annotations
 from mne.epochs import Epochs
-from autoreject import AutoReject, Ransac
+# from autoreject import AutoReject, Ransac
 import numpy as np
 from mne.preprocessing.ica import ICA, corrmap, read_ica
 import os
@@ -10,7 +9,9 @@ from matplotlib import pyplot as plt, patches
 import mne
 
 
-def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101", session=1,newfreq=500, recording=10, mainevent=8):
+def loadOep(
+        folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",
+        session=1, newfreq=500, recording=10, mainevent=8):
     """
     all these functions rely on filenames and folders retaining the structure set by oeps. h5 files of a certain recording-experiment must be put in the corresponding recordingN (e.g. recording5) folder.
 
@@ -68,198 +69,199 @@ def loadOep(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\m
     global cent
     global omiss
     global poste_cent
-    omiss=False
-    indexo=[]#it stays [] if all trials are identical and there is no index
-    front_left=['B6' ,'B5' ,'C6' ,'C5']#for future use
-    channelmap=np.array([[16 ,18 ,15 ,17],[14 ,12 ,13 ,11],[10,0,9,7],[20,29,19,22],[6,3,5,2],[23,27,24,26],[8,1,21,28],[28,1,4,25]])#see below
-    
-    front_right=['D6' ,'D5' ,'E6' ,'E5']
-    front_righti=[14 ,12 ,13 ,11]
-    media_right=['D4' ,'F3' ,'E4' ,'E3']
-    media_righti=[10,0,9,7]
-    media_left=['B4' ,'A3' ,'C4' ,'B3']
-    media_lefti=[20,29,19,22]
-    poste_right=['F1' ,'F2' ,'E1' ,'E2']
-    poste_righti=[6,3,5,2]
-    poste_left=['A1' ,'B2' ,'B1' ,'A2']
-    poste_lefti=[23,27,24,26]
-    cent=['D3' ,'C2' ,'C3' ,'D2']
-    centi=[8,1,21,28]
-    poste_cent=['D1' ,'C2' ,'C1' ,'D2']
-    poste_centi=[28,1,4,25]
+    omiss = False
+    indexo = []  # it stays [] if all trials are identical and there is no index
+    front_left = ['B6', 'B5', 'C6', 'C5']  # for future use
+    channelmap = np.array(
+        [[16, 18, 15, 17], [14, 12, 13, 11], [10, 0, 9, 7], [20, 29, 19, 22], [6, 3, 5, 2], [23, 27, 24, 26],
+         [8, 1, 21, 28], [28, 1, 4, 25]])  # see below
+
+    front_right = ['D6', 'D5', 'E6', 'E5']
+    front_righti = [14, 12, 13, 11]
+    media_right = ['D4', 'F3', 'E4', 'E3']
+    media_righti = [10, 0, 9, 7]
+    media_left = ['B4', 'A3', 'C4', 'B3']
+    media_lefti = [20, 29, 19, 22]
+    poste_right = ['F1', 'F2', 'E1', 'E2']
+    poste_righti = [6, 3, 5, 2]
+    poste_left = ['A1', 'B2', 'B1', 'A2']
+    poste_lefti = [23, 27, 24, 26]
+    cent = ['D3', 'C2', 'C3', 'D2']
+    centi = [8, 1, 21, 28]
+    poste_cent = ['D1', 'C2', 'C1', 'D2']
+    poste_centi = [28, 1, 4, 25]
     _out_folder = 'C:\\Users\PC\Desktop\mea_anal'
 
-    Folder=folder #folder where the recordings are
-    session=session#usually 1. it is the overall recording session
-    Recording=recording# various recordings per session
-    Processor=None
-    Files = sorted(glob(Folder+'/**/*.dat', recursive=True))#get all data files in folder
-    InfoFiles = sorted(glob(Folder+'/*/*/structure.oebin'))
-
+    Folder = folder  # folder where the recordings are
+    session = session  # usually 1. it is the overall recording session
+    Recording = recording  # various recordings per session
+    Processor = None
+    Files = sorted(glob(Folder + '/**/*.dat', recursive=True))  # get all data files in folder
+    InfoFiles = sorted(glob(Folder + '/*/*/structure.oebin'))
 
     Data, Rate = {}, {}
-    for F,File in enumerate(Files):#go through, select the recording  from input.
-        
-        
+    for F, File in enumerate(Files):  # go through, select the recording  from input.
+
         Exp, Rec, _, Proc = File.split('\\')[-5:-1]
-        Exp = str(int(Exp[10:])-1)
-        Rec = str(int(Rec[9:])-1)
+        Exp = str(int(Exp[10:]) - 1)
+        Rec = str(int(Rec[9:]) - 1)
         Proc = Proc.split('.')[0].split('-')[-1]
         if '_' in Proc: Proc = Proc.split('_')[0]
-        
+
         if Proc not in Data.keys(): Data[Proc], Rate[Proc] = {}, {}
-        
+
         if session:
-            if int(Exp) != session-1: continue
-        
+            if int(Exp) != session - 1: continue
+
         if Recording:
-            if int(Rec) != Recording-1: continue
-        
+            if int(Rec) != Recording - 1: continue
+
         if Processor:
             if Proc != Processor: continue
-        
-        print('Loading recording', int(Rec)+1, '...')
+
+        print('Loading recording', int(Rec) + 1, '...')
         if Exp not in Data[Proc]: Data[Proc][Exp] = {}
         Data[Proc][Exp][Rec] = np.memmap(File, dtype='int16', mode='c')
-        
-        
+
         Info = literal_eval(open(InfoFiles[F]).read())
         ProcIndex = [Info['continuous'].index(_) for _ in Info['continuous']
                      if str(_['recorded_processor_id']) == '101'][0]
-        
+
         ChNo = Info['continuous'][ProcIndex]['num_channels']
-        if Data[Proc][Exp][Rec].shape[0]%ChNo:
+        if Data[Proc][Exp][Rec].shape[0] % ChNo:
             print('Rec', Rec, 'is broken')
-            del(Data[Proc][Exp][Rec])
+            del (Data[Proc][Exp][Rec])
             continue
-        
-        SamplesPerCh = Data[Proc][Exp][Rec].shape[0]//ChNo
+
+        SamplesPerCh = Data[Proc][Exp][Rec].shape[0] // ChNo
         Data[Proc][Exp][Rec] = Data[Proc][Exp][Rec].reshape((SamplesPerCh, ChNo))
         Rate[Proc][Exp] = Info['continuous'][ProcIndex]['sample_rate']
-        f=Rate[Proc][Exp]
-        oldfreq=f
-        FolderEv=Folder+'\\experiment'+str(session)+'\\recording'+str(recording)+'\\events\Rhythm_FPGA-100.0\\TTL_1'#get folder with events
-        FilesEv = sorted(glob(FolderEv+'\\*.npy', recursive=True))#get events
-        ttll=np.load(FilesEv[0])
-            
-        ttl=np.argwhere(ttll==mainevent)#get trial event.
-        tstp=np.load(FilesEv[3])#load timestamps
-        data=Data[Proc][Exp][str(recording-1)]
-        chunk=int((len(Data[Proc][Exp][str(recording-1)])/len(ttl))/(int(f/newfreq) ))#size of trial in datapoints
+        f = Rate[Proc][Exp]
+        oldfreq = f
+        FolderEv = Folder + '\\experiment' + str(session) + '\\recording' + str(
+            recording) + '\\events\Rhythm_FPGA-100.0\\TTL_1'  # get folder with events
+        FilesEv = sorted(glob(FolderEv + '\\*.npy', recursive=True))  # get events
+        ttll = np.load(FilesEv[0])
 
+        ttl = np.argwhere(ttll == mainevent)  # get trial event.
+        tstp = np.load(FilesEv[3])  # load timestamps
+        data = Data[Proc][Exp][str(recording - 1)]
+        chunk = int(
+            (len(Data[Proc][Exp][str(recording - 1)]) / len(ttl)) / (int(f / newfreq)))  # size of trial in datapoints
 
-        filenamex=File#to set aside the filename of the actual recording we are working with after we exit the loop through all FIles for that session
+        filenamex = File  # to set aside the filename of the actual recording we are working with after we exit the loop through all FIles for that session
 
-        u=[]
-   
-   
+        u = []
 
+    Data = []
 
+    myfile = filenamex[:-3] + str(
+        newfreq) + '_dwnsmpl.npy'  # this is to average together channels as indicated in the top list (channelmap). looked weird when i actually used these data TODO look into averaging together neighboring channels to go from 30 to 8
 
-
-    Data=[]
-
-    
-    myfile=filenamex[:-3]+str(newfreq)+'_dwnsmpl.npy'#this is to average together channels as indicated in the top list (channelmap). looked weird when i actually used these data TODO look into averaging together neighboring channels to go from 30 to 8
-  
     from pathlib import Path
 
     my_file = Path(myfile)
     if my_file.is_file():
         print('load downsampled file')
 
-        data=np.load(myfile)
-        f=newfreq
+        data = np.load(myfile)
+        f = newfreq
     else:
-        print('saving downsampled file')#if frequency is not newfreq hz data are downsampled to newfreq
-        if f!=newfreq:
-            data= data[::int(f/newfreq),:32]#downsample from 30k
-            f=newfreq
-        data= data[:,:32]#cut dac channels
-    
-        data=np.delete(data,[7,24],1)#get rid of non-channels
+        print('saving downsampled file')  # if frequency is not newfreq hz data are downsampled to newfreq
+        if f != newfreq:
+            data = data[::int(f / newfreq), :32]  # downsample from 30k
+            f = newfreq
+        data = data[:, :32]  # cut dac channels
 
-            
-        data=(data*0.195/1000000)#convert bits to microvolt and microvolt to volt. "The raw data are saved as signed 16-bit integers, in the range -32768 to 32767. They don’t have a unit. To convert to microvolts, just  multiply by 0.195, as you noted. This scales the data into the range ±6.390 mV, with 0.195 µV resolution (Intan chips have a ±5 mV input range).""
-# THIS GETS DATA IN ACTUAL MEMORY; TAKES TIME
-        data=data-data.mean(0)#baseline
+        data = np.delete(data, [7, 24], 1)  # get rid of non-channels
+
+        data = (
+                    data * 0.195 / 1000000)  # convert bits to microvolt and microvolt to volt. "The raw data are saved as signed 16-bit integers, in the range -32768 to 32767. They don’t have a unit. To convert to microvolts, just  multiply by 0.195, as you noted. This scales the data into the range ±6.390 mV, with 0.195 µV resolution (Intan chips have a ±5 mV input range).""
+        # THIS GETS DATA IN ACTUAL MEMORY; TAKES TIME
+        data = data - data.mean(0)  # baseline
         np.save(myfile, data)
-    
-    h5file=sorted(glob(Folder+'/experiment'+str(session)+'/recording'+str(recording)+'/**/*.h5', recursive=True))#this is the file from the tdt side. they are put by hand in the recordingn folder after data collection
+
+    h5file = sorted(glob(Folder + '/experiment' + str(session) + '/recording' + str(recording) + '/**/*.h5',
+                         recursive=True))  # this is the file from the tdt side. they are put by hand in the recordingn folder after data collection
     import tables
     try:
-        ff=tables.open_file(h5file[0])
-        soa=((ff.root._v_attrs.Exp_Settings_SOA/ff.root._v_attrs.Exp_Settings_sampling_freq))#SOA for filenames. rounding issue here 
-        stimdur=((ff.root._v_attrs.Exp_Settings_stim_dur/ff.root._v_attrs.Exp_Settings_sampling_freq))#stim duration for filenames
-        if h5file[0][-14]=='N':# checks if the recording is a MMN one, in which case gets the index.
-            omiss=True  
-            indexo=Omitter(h5file[0])#get index of omissions from recorded audio signal. this allows to check for discrepancies from index (there should be none if the computer is not used during recording)
-    except Exception:#in case the h5 file is damaged or does not exist.
-        soa=((len(data)/(newfreq**2)))
-        stimdur=0.109 
-    tstp=tstp-tstp[0]
-    index=tstp[ttl]/(oldfreq/newfreq)#downsample timestamps
-    if index[-1]+chunk>len(data):#hack  if recording happens to be a datapoint too short last trial is deleted.
-            index=np.delete(index,len(index)-1)    
-            deletable=np.argwhere((tstp-tstp[0])/int(oldfreq/newfreq)+chunk>len(data))
-            tstp=np.delete(tstp,deletable)
-            ttll=np.delete(ttll,deletable)
-    v=[]  #these following loops are to average epochs , the purpose being having quick way to look at erp after recording session
+        ff = tables.open_file(h5file[0])
+        soa = ((
+                    ff.root._v_attrs.Exp_Settings_SOA / ff.root._v_attrs.Exp_Settings_sampling_freq))  # SOA for filenames. rounding issue here
+        stimdur = ((
+                    ff.root._v_attrs.Exp_Settings_stim_dur / ff.root._v_attrs.Exp_Settings_sampling_freq))  # stim duration for filenames
+        if h5file[0][-14] == 'N':  # checks if the recording is a MMN one, in which case gets the index.
+            omiss = True
+            indexo = Omitter(h5file[
+                                 0])  # get index of omissions from recorded audio signal. this allows to check for discrepancies from index (there should be none if the computer is not used during recording)
+    except Exception:  # in case the h5 file is damaged or does not exist.
+        soa = ((len(data) / (newfreq ** 2)))
+        stimdur = 0.109
+    tstp = tstp - tstp[0]
+    index = tstp[ttl] / (oldfreq / newfreq)  # downsample timestamps
+    if index[-1] + chunk > len(data):  # hack  if recording happens to be a datapoint too short last trial is deleted.
+        index = np.delete(index, len(index) - 1)
+        deletable = np.argwhere((tstp - tstp[0]) / int(oldfreq / newfreq) + chunk > len(data))
+        tstp = np.delete(tstp, deletable)
+        ttll = np.delete(ttll, deletable)
+    v = []  # these following loops are to average epochs , the purpose being having quick way to look at erp after recording session
 
-    for iz in range (0,len(data[1,:])):
-        n=[]
-        
+    for iz in range(0, len(data[1, :])):
+        n = []
 
-        for i in range(0,len(index)):
-           n.append(data[int(index[i]):int(index[i])+chunk,iz])
+        for i in range(0, len(index)):
+            n.append(data[int(index[i]):int(index[i]) + chunk, iz])
 
-        v.append(sum(n)/len(n)-sum(sum(n))/(len(n)*len(sum(n))))
+        v.append(sum(n) / len(n) - sum(sum(n)) / (len(n) * len(sum(n))))
+
+    mean = v  # this is the epoched and averaged data
+    triggers = ttll
+    sfreq = f
+    timestamps = tstp
+    return indexo, filenamex, soa, stimdur, mean, data, triggers, timestamps, sfreq, oldfreq
 
 
-    mean=v#this is the epoched and averaged data
-    triggers=ttll
-    sfreq=f
-    timestamps=tstp
-    return indexo,filenamex,soa,stimdur,mean,data,triggers,timestamps,sfreq,oldfreq
-#indexo: stimulus index if mmn from h5. filename. stimulus onset async from h5. stimulus duration from h5. mean=averaged epoched traces, data = downsampled data, datar= downsampled data iwth channels averaged in groups (left front ecc). triggers= trigger events index for timestamps in teimestams, sfrequ is sampling freq should always be newfreq at this pint
-    
+# indexo: stimulus index if mmn from h5. filename. stimulus onset async from h5. stimulus duration from h5. mean=averaged epoched traces, data = downsampled data, datar= downsampled data iwth channels averaged in groups (left front ecc). triggers= trigger events index for timestamps in teimestams, sfrequ is sampling freq should always be newfreq at this pint
+
 
 def Omitter(h5file):
     """
     this method goes through the audio recording and checks which trials are silent. this is a temporary solution for omission MMN as in two recordings the index was not followed (intensity switching logic is time dependent and can fail. Should be ok now)
     """
-    omiss:True      
-    
-    filename=h5file
-    
-    
+    omiss: True
+
+    filename = h5file
+
     import tables
 
     import numpy as np
     import numpy
 
-
-    
-    ff=tables.open_file(filename)
-    leftn1=[]
+    ff = tables.open_file(filename)
+    leftn1 = []
     for group in ff.walk_groups("/"):
-         for array in ff.list_nodes(group, classname='Array'):
-             leftn1.append(array[:,1])
-    leftn1=np.array(leftn1)*50000
-    leftarr=np.zeros((ff.root._v_attrs.Exp_Settings_reps,int(ff.root._v_attrs.Exp_Settings_SOA/10)))
-    for i in range(0,ff.root._v_attrs.Exp_Settings_reps):
-         leftarr[i]=numpy.array(leftn1)[0,(i*int(ff.root._v_attrs.Exp_Settings_SOA/10)) : (i+1)*int(ff.root._v_attrs.Exp_Settings_SOA/10)]
-    dd=np.max(leftarr[:,375:625],1)
-    uu=dd>100
+        for array in ff.list_nodes(group, classname='Array'):
+            leftn1.append(array[:, 1])
+    leftn1 = np.array(leftn1) * 50000
+    leftarr = np.zeros((ff.root._v_attrs.Exp_Settings_reps, int(ff.root._v_attrs.Exp_Settings_SOA / 10)))
+    for i in range(0, ff.root._v_attrs.Exp_Settings_reps):
+        leftarr[i] = numpy.array(leftn1)[0, (i * int(ff.root._v_attrs.Exp_Settings_SOA / 10)): (i + 1) * int(
+            ff.root._v_attrs.Exp_Settings_SOA / 10)]
+    dd = np.max(leftarr[:, 375:625], 1)
+    uu = dd > 100
     return uu
-def scaler(my_diction,factor=50):  
-    total = 0  
-     
-    for j in my_diction:  
-        my_diction[j] = (my_diction[j])/factor
+
+
+def scaler(my_diction, factor=50):
+    total = 0
+
+    for j in my_diction:
+        my_diction[j] = (my_diction[j]) / factor
     return my_diction
-def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8, scale_factorX=50, scale_factorDIV=50): 
-        """
+
+
+def MNEify(indexo, datar, timestamps, triggers, sfreq, oldfreq, trialevent=8, scale_factorX=50, scale_factorDIV=50):
+    """
             this method gets the data into an Mne raw object
 
 
@@ -279,59 +281,58 @@ def MNEify(indexo,datar,timestamps,triggers,sfreq,oldfreq,trialevent=8, scale_fa
     -------
     raw objects and event array to make epochs
     """
-           #TODO. RIGHT NOW i AM DIVIDING THE ch position values IN millimiters BY 50, and also  multiplying the nas +ear values in meters by 50, in order to get a sensible topomap.   counterintuitive.
-        import mne
-        datad=np.transpose(datar[:,:len(datar[1,:])])#transpose raw data as per mne requirment
-        timstp=timestamps-timestamps[0]#zero timestamps to start of recording
-        eventstsp=timstp[np.argwhere(triggers==trialevent)]#select timestamps of each trial event
-        ggg=np.zeros((len(eventstsp),1))
-        dd=np.ones((len(eventstsp),1))
-        if np.array(indexo).any(): #fix discrepancies between h5file index and timestamps
-            dd=indexo.astype(int)
-            dd=np.reshape(dd,(len(dd),1))
-            if len(dd)>len(eventstsp):
-                dd=dd[:len(eventstsp)]
-            elif len(dd)<len(eventstsp):
-                eventstsp=eventstsp[:len(dd)]
-                ggg=ggg[:len(dd)]
-                
-#     tim=tim-tim[1843]#3000 datapoint at 48828.125hz recorded at 30000hz
+    # TODO. RIGHT NOW i AM DIVIDING THE ch position values IN millimiters BY 50, and also  multiplying the nas +ear values in meters by 50, in order to get a sensible topomap.   counterintuitive.
+    import mne
+    datad = np.transpose(datar[:, :len(datar[1, :])])  # transpose raw data as per mne requirment
+    timstp = timestamps - timestamps[0]  # zero timestamps to start of recording
+    eventstsp = timstp[np.argwhere(triggers == trialevent)]  # select timestamps of each trial event
+    ggg = np.zeros((len(eventstsp), 1))
+    dd = np.ones((len(eventstsp), 1))
+    if np.array(indexo).any():  # fix discrepancies between h5file index and timestamps
+        dd = indexo.astype(int)
+        dd = np.reshape(dd, (len(dd), 1))
+        if len(dd) > len(eventstsp):
+            dd = dd[:len(eventstsp)]
+        elif len(dd) < len(eventstsp):
+            eventstsp = eventstsp[:len(dd)]
+            ggg = ggg[:len(dd)]
 
-# unfilt=np.delete(unfilt,[7,24],0)
-# filtt=np.delete(filtt,[7,24],0)
-        if len(datad)==30:#channel names for all 30
-            import pandas as pd
+    #     tim=tim-tim[1843]#3000 datapoint at 48828.125hz recorded at 30000hz
 
-            df = pd.read_csv('channelsH32Mabs.txt')
-            ch_names = df.name.to_list()
+    # unfilt=np.delete(unfilt,[7,24],0)
+    # filtt=np.delete(filtt,[7,24],0)
+    if len(datad) == 30:  # channel names for all 30
+        import pandas as pd
 
-            pos = df[['z','x','y']].values
-            dig_ch_pos = dict(zip(ch_names,pos))
-            scaler(dig_ch_pos,scale_factorDIV)
-            nasion= [-0.007*scale_factorX, 0*scale_factorX, -0.001*scale_factorX]
-            lpa= [0.000*scale_factorX, -0.005*scale_factorX, -0.001*scale_factorX]
-            rpa=[0.000*scale_factorX, 0.005*scale_factorX, -0.001*scale_factorX]
-            montage = mne.channels.make_dig_montage(ch_pos=dig_ch_pos,nasion=nasion,lpa=lpa,rpa=rpa)
-                        
-            ch_types = ['eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg', 'eeg']
-        else: #channel names for pooled channels
-            ch_names = ['front_left','front_right','cent_right','cent_left','post_right','post_left','central','post_cent']
-            ch_types = ['eeg', 'eeg', 'eeg', 'eeg','eeg', 'eeg', 'eeg','eeg']
-        
-            
-        
+        df = pd.read_csv('channelsH32Mabs.txt')
+        ch_names = df.name.to_list()
 
-        events=np.concatenate((eventstsp/(oldfreq/sfreq)+int(np.ceil((310/4882.8125)*sfreq)),ggg,dd),1)# here we get events in shape required from mne (1st column timestamps, second zeros, third ones)
-        events=events.astype(int)
-        info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
-        raw = mne.io.RawArray(datad, info)
-        raw=raw.set_montage(montage)
-        events=events.astype(int)
-        return raw,events
-        
-        
+        pos = df[['z', 'x', 'y']].values
+        dig_ch_pos = dict(zip(ch_names, pos))
+        scaler(dig_ch_pos, scale_factorDIV)
+        nasion = [-0.007 * scale_factorX, 0 * scale_factorX, -0.001 * scale_factorX]
+        lpa = [0.000 * scale_factorX, -0.005 * scale_factorX, -0.001 * scale_factorX]
+        rpa = [0.000 * scale_factorX, 0.005 * scale_factorX, -0.001 * scale_factorX]
+        montage = mne.channels.make_dig_montage(ch_pos=dig_ch_pos, nasion=nasion, lpa=lpa, rpa=rpa)
 
-        
+        ch_types = ['eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg',
+                    'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg',
+                    'eeg', 'eeg']
+    else:  # channel names for pooled channels
+        ch_names = ['front_left', 'front_right', 'cent_right', 'cent_left', 'post_right', 'post_left', 'central',
+                    'post_cent']
+        ch_types = ['eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg']
+
+    events = np.concatenate((eventstsp / (oldfreq / sfreq) + int(np.ceil((310 / 4882.8125) * sfreq)), ggg, dd),
+                            1)  # here we get events in shape required from mne (1st column timestamps, second zeros, third ones)
+    events = events.astype(int)
+    info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
+    raw = mne.io.RawArray(datad, info)
+    raw = raw.set_montage(montage)
+    events = events.astype(int)
+    return raw, events
+
+
 def find_peaks(data, min_dist=1, thresh=0.3, degree=None):
     """
     Find peaks in the data, optionally apply a baseline before.
@@ -345,12 +346,13 @@ def find_peaks(data, min_dist=1, thresh=0.3, degree=None):
         base = peakutils.baseline(data, degree)
     else:
         base = np.zeros(len(data))
-    peak_idx = peakutils.indexes(data-base, thres=thresh, min_dist=min_dist)
-    if peak_idx.size==0:
-        peak_idx=np.argwhere(data==max(data))
+    peak_idx = peakutils.indexes(data - base, thres=thresh, min_dist=min_dist)
+    if peak_idx.size == 0:
+        peak_idx = np.argwhere(data == max(data))
     return peak_idx, base
-        
-def peak_minmax(trace,pz=[30,45],nu=[45,60]):
+
+
+def peak_minmax(trace, pz=[60, 140], nu=[160, 240]):
     """
         see findpeax above, this one to get adjacent positive and negative peaks to measure amplitude. did not test extensively yet
 
@@ -371,14 +373,18 @@ def peak_minmax(trace,pz=[30,45],nu=[45,60]):
 
     """
 
-    bb=find_peaks(trace[pz[0]:pz[1]], min_dist=1, thresh=0.3, degree=None)
-    tt=find_peaks(0-trace[nu[0]:nu[1]], min_dist=1, thresh=0.0, degree=None)
-    pospeakindex=pz[0]+np.argwhere(trace==max(trace[pz[0]+bb[0]]))
-    negpeak=(max(0-trace[nu[0]+tt[0]]))
-    pospeak=(max(trace[pz[0]+bb[0]]))
-    negpeakindex=nu[0]+np.argwhere(0-trace==max(0-trace[nu[0]+tt[0]]))
-    return pospeak,negpeak,pospeakindex,negpeakindex
-def noise_rms(epochedt,chan,tr):
+    bb, roe = find_peaks(trace[pz[0]:pz[1]], min_dist=1, thresh=0.3, degree=None)
+    tt, roe = find_peaks(0 - trace[nu[0]:nu[1]], min_dist=1, thresh=0.0, degree=None)
+    pospeakindex = pz[0] + max(bb)
+    pospeak = trace[pospeakindex]
+    negpeakindex = nu[0] + max(tt)
+    negpeak = trace[negpeakindex]
+    ampl=pospeak-negpeak
+
+    return ampl, pospeakindex
+
+
+def noise_rms(epochedt, chan, tr):
     """
     Calculate the noise that remains after averaging in the ERP following
     the procedure from Schimmel(1967): invert every other trial then average.
@@ -394,14 +400,15 @@ def noise_rms(epochedt,chan,tr):
     rms for a certain channel evoked response over a certain amount of trials
     
     """
-    
+
     for i in range(tr):
         if not i % 2:
             epochedt[i, :, :] = -epochedt[i, :, :]
-    evokedchannel=np.array(epochedt)[0:tr,chan,:].mean(0)
-    rms = np.sqrt(np.mean(evokedchannel**2))
-    
+    evokedchannel = np.array(epochedt)[0:tr, chan, :].mean(0)
+    rms = np.sqrt(np.mean(evokedchannel ** 2))
+
     return rms
+
 
 def noise_inverter(epochedt):
     """
@@ -412,12 +419,13 @@ def noise_inverter(epochedt):
     epochedt= copy of array obtained form mne epochs . epochs['stim_standard']) (if epochs from different events otherwise  np.array(epochs) + epoched.copy())
     returns array of epoched data with every other one inverted
     """
-    
+
     for i in range(len(epochedt)):
         if not i % 2:
             epochedt[i, :, :] = -epochedt[i, :, :]
 
     return epochedt
+
 
 def snr_peak_by_trial(epoched):
     """
@@ -444,42 +452,49 @@ def snr_peak_by_trial(epoched):
     posindex,index of positive peak after event
     negindex= index of neg peak after event
     """
-    epochedt=epoched.copy()
-    snr_before_event=np.zeros((len(epoched[1]),len(epoched)))
-    rmsnp=np.zeros((len(epoched[1]),len(epoched)))
-    snr_later=np.zeros((len(epoched[1]),len(epoched)))
-    snr_avg_inverted=np.zeros((len(epoched[1]),len(epoched)))
-    bbbb=np.zeros((len(epoched[1]),len(epoched)))
-    mmmm=np.zeros((len(epoched[1]),len(epoched)))
-    posindex=np.zeros((len(epoched[1]),len(epoched)))
-    negindex=np.zeros((len(epoched[1]),len(epoched)))
-    lllll=np.zeros((len(epoched[1]),len(epoched)))
-    ddddd=np.zeros((len(epoched[1]),len(epoched)))
-    bbbbb=np.zeros((len(epoched[1]),len(epoched)))
-    maxmin=np.zeros((len(epoched[1]),len(epoched)))
-    mmmmm=np.zeros((len(epoched[1]),len(epoched)))
-    inverted=np.sqrt(np.mean(noise_inverter(epochedt).mean(0)**2))
-    for gg in range(0,len(epoched[1])):
-        print(gg)   
-        for ii in range(1,len(epoched)):
+    epochedt = epoched.copy()
+    snr_before_event = np.zeros((len(epoched[1]), len(epoched)))
+    rmsnp = np.zeros((len(epoched[1]), len(epoched)))
+    snr_later = np.zeros((len(epoched[1]), len(epoched)))
+    snr_avg_inverted = np.zeros((len(epoched[1]), len(epoched)))
+    bbbb = np.zeros((len(epoched[1]), len(epoched)))
+    mmmm = np.zeros((len(epoched[1]), len(epoched)))
+    posindex = np.zeros((len(epoched[1]), len(epoched)))
+    negindex = np.zeros((len(epoched[1]), len(epoched)))
+    lllll = np.zeros((len(epoched[1]), len(epoched)))
+    ddddd = np.zeros((len(epoched[1]), len(epoched)))
+    bbbbb = np.zeros((len(epoched[1]), len(epoched)))
+    maxmin = np.zeros((len(epoched[1]), len(epoched)))
+    mmmmm = np.zeros((len(epoched[1]), len(epoched)))
+    inverted = np.sqrt(np.mean(noise_inverter(epochedt).mean(0) ** 2))
+    for gg in range(0, len(epoched[1])):
+        print(gg)
+        for ii in range(1, len(epoched)):
+            rmsnp[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60],
+                                                    0) ** 2))  # for epoched at -0.6 tith 30 dp from event, comparing with before event
+            maxmin[gg, ii] = np.max((np.mean(epoched[0:ii, gg, 150:], 0))) - np.min(
+                (np.mean(epoched[0:ii, gg, 150:], 0)))
 
-            rmsnp[gg,ii]=np.sqrt(np.mean(np.mean(epoched[0:ii,gg,30:60],0)**2))#for epoched at -0.6 tith 30 dp from event, comparing with before event
-            maxmin[gg,ii]=np.max((np.mean(epoched[0:ii,gg,150:],0)))-np.min((np.mean(epoched[0:ii,gg,150:],0)))
+            snr_before_event[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60], 0) ** 2)) / np.sqrt(np.mean(
+                np.mean(epoched[0:ii, gg, 0:30],
+                        0) ** 2))  # for epoched at -0.6 tith 30 dp from event, comparing with before event
+            snr_later[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60], 0) ** 2)) / np.sqrt(np.mean(
+                np.mean(epoched[0:ii, gg, -40:-10],
+                        0) ** 2))  # for epoched at -0.6 tith 30 dp from event, comparing with latest from event
+            snr_avg_inverted[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60],
+                                                               0) ** 2)) / inverted  # for epoched at -0.6 tith 30 dp from event, comparing with Schimmel(1967)
+            bbbb[gg, ii], mmmm[gg, ii], posindex[gg, ii], negindex[gg, ii] = peak_minmax(
+                (np.mean(epoched[0:ii, gg, :], 0)))  # this saves Voltage of p0 and n1 and their positions
+            bbbbb[gg, ii], mmmmm[gg, ii], lllll[gg, ii], ddddd[gg, ii] = peak_minmax((np.mean(epoched[0:ii, gg, :], 0)),
+                                                                                     [0, 15], [15,
+                                                                                               30])  # this gets a pos and neg peak from the pre stim interval
+    peakamp = (bbbb - mmmm)
+    peaknoise = np.sqrt((bbbbb - mmmmm) ** 2)
+    peaksnr = peakamp / peaknoise
+    peaksnr = peakamp / peaknoise
+    peaksnrwide = peakamp / maxmin
 
-            snr_before_event[gg,ii]=np.sqrt(np.mean(np.mean(epoched[0:ii,gg,30:60],0)**2))/np.sqrt(np.mean(np.mean(epoched[0:ii,gg,0:30],0)**2))#for epoched at -0.6 tith 30 dp from event, comparing with before event
-            snr_later[gg,ii]=np.sqrt(np.mean(np.mean(epoched[0:ii,gg,30:60],0)**2))/np.sqrt(np.mean(np.mean(epoched[0:ii,gg,-40:-10],0)**2))#for epoched at -0.6 tith 30 dp from event, comparing with latest from event
-            snr_avg_inverted[gg,ii]=np.sqrt(np.mean(np.mean(epoched[0:ii,gg,30:60],0)**2))/inverted#for epoched at -0.6 tith 30 dp from event, comparing with Schimmel(1967)
-            bbbb[gg,ii],mmmm[gg,ii],posindex[gg,ii],negindex[gg,ii]=peak_minmax((np.mean(epoched[0:ii,gg,:],0)))#this saves Voltage of p0 and n1 and their positions
-            bbbbb[gg,ii],mmmmm[gg,ii],lllll[gg,ii],ddddd[gg,ii]=peak_minmax((np.mean(epoched[0:ii,gg,:],0)),[0,15],[15,30])#this gets a pos and neg peak from the pre stim interval
-    peakamp=(bbbb-mmmm)
-    peaknoise=np.sqrt((bbbbb-mmmmm)**2)
-    peaksnr=peakamp/peaknoise
-    peaksnr=peakamp/peaknoise
-    peaksnrwide=peakamp/maxmin
-    
-    return rmsnp,snr_before_event,snr_later,snr_avg_inverted,peaksnr,peaksnrwide,peakamp,posindex,negindex
-
-
+    return rmsnp, snr_before_event, snr_later, snr_avg_inverted, peaksnr, peaksnrwide, peakamp, posindex, negindex
 
 
 def filtering(raw, notch=None, highpass=None, lowpass=None,
@@ -501,13 +516,13 @@ def filtering(raw, notch=None, highpass=None, lowpass=None,
 
     _out_folder = 'C:\\Users\PC\Desktop\mea_anal'
 
- #   fig, ax = plt.subplots(2, sharex=True, sharey=True)
- #   fig.suptitle("Power Spectral Density")
- #   ax[0].set_title("before removing power line noise")
-  #  ax[1].set_title("after removing power line noise")
- #   ax[1].set(xlabel="Frequency (Hz)", ylabel="μV²/Hz (dB)")
- #   ax[0].set(xlabel="Frequency (Hz)", ylabel="μV²/Hz (dB)")
-  #  raw.plot_psd(average=True, area_mode=None, ax=ax[0], show=False)
+    #   fig, ax = plt.subplots(2, sharex=True, sharey=True)
+    #   fig.suptitle("Power Spectral Density")
+    #   ax[0].set_title("before removing power line noise")
+    #  ax[1].set_title("after removing power line noise")
+    #   ax[1].set(xlabel="Frequency (Hz)", ylabel="μV²/Hz (dB)")
+    #   ax[0].set(xlabel="Frequency (Hz)", ylabel="μV²/Hz (dB)")
+    #  raw.plot_psd(average=True, area_mode=None, ax=ax[0], show=False)
     if notch is not None:  # notch filter at 50 Hz and harmonics
         raw.notch_filter(freqs=notch, fir_window=fir_window,
                          fir_design=fir_design)
@@ -517,18 +532,16 @@ def filtering(raw, notch=None, highpass=None, lowpass=None,
     if highpass is not None:  # lowpass filter at 50 Hz
         raw.filter(h_freq=None, l_freq=highpass, fir_window=fir_window,
                    fir_design=fir_design)
- #   raw.plot_psd(average=True, area_mode=None, ax=ax[1], show=False)
- #   fig.tight_layout()
-  #  fig.savefig(_out_folder/Path("remove_power_line_noise.pdf"), dpi=800)
-    
+    #   raw.plot_psd(average=True, area_mode=None, ax=ax[1], show=False)
+    #   fig.tight_layout()
+    #  fig.savefig(_out_folder/Path("remove_power_line_noise.pdf"), dpi=800)
+
     return raw
 
 
-
-    
 def Bootsrapper_snr(epochsdata):
     """
-    this function calculates bootstrap snr. it takes ages (it bootstraps every amount of trials for every channel)
+    this function calculates bootstrap snr in 50 trials increments
 
     Parameters
     ----------
@@ -549,144 +562,323 @@ def Bootsrapper_snr(epochsdata):
     """
     import scipy as sp
     from scipy import stats
-    extract=1000
-    #we need to store ntrial snr values, ntrial std, ntrial
-    sem=np.zeros((len(epochsdata[:,0]),len(epochsdata[1])))
-    std=np.zeros((len(epochsdata[:,0]),len(epochsdata[1])))
-    bpmean=np.zeros((len(epochsdata[:,0]),len(epochsdata[1])))
+    extract = 1000
+    # snr calculated with rms, with sem and std
+    bpsemrmssnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdrmssnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bprmssnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    # snr calculated with peak, p1 to n1, with sem and std
+    bpsempeaksnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdpeaksnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bppeaksnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    # snr calculated with peak, n1 to p2, with sem and std
+    bpsempeaktwosnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdpeaktwosnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bppeaktwosnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+# confidence intervals for all the above, at 5%
+    bpconfidencelrmssnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehrmssnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
 
-    confidencel=np.zeros((len(epochsdata[:,0]),len(epochsdata[1])))
-    confidenceh=np.zeros((len(epochsdata[:,0]),len(epochsdata[1])))
-    
+    bpconfidencelpeaksnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehpeaksnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpconfidencelpeaktwosnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehpeaktwosnr = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+# actual rms and peak values (not snr) bootstrapped
+    bpsemrms = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdrms = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bprms = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpsempeakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdpeakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bppeakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpsempeaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdpeaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bppeaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpconfidencelrms = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehrms = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpconfidencelpeakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehpeakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpconfidencelpeaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehpeaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    # actual rms and peak values (not snr, not bootstrapped)
+    rms = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    peakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    peaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+
+    # we also want to store the actual trace with sem std and conf int
+
+    # real trace, with sem and std
+    trace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+    stdtrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+    semtrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+
+    # confidence intervals for all the above, at 5%
+
+
+    confidenceltrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+    confidencehtrace= np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+    for u in range(0, len(epochsdata[1])):  # channel loop
+        print("----------------------------", u)#track what channel iteration you are at
+        samplespool = epochsdata[:, u, :]
+        for r in range(1, int((len(epochsdata) / 50))):  # trial loop
+            #here we save the real trace
+
+            trace[r,u,:]=epochsdata[:(r+1)*50, u, :].mean(0)
+            semtrace[r, u,:] = sp.stats.sem(epochsdata[:(r+1)*50, u, :], 0)
+            stdtrace[r, u,:] = np.std(epochsdata[:(r+1)*50, u, :], 0)
+            sortedtrace = np.sort(epochsdata[:(r+1)*50, u, :], 0)
+            confidenceltrace[r, u,:] = sortedtrace[int(extract*5/100)]
+            confidencehtrace[r, u,:] = sortedtrace[int(extract*95/100)]
+
+            #and the real values of peaks and rms
+            rms [r,u]= np.sqrt(np.mean(epochsdata[:(r+1)*50, u, :].mean(0)[260:510] ** 2))
+
+            peakamp [r,u]= peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[260, 333], nu=[333, 420])
+
+            peaktwoamp [r,u]  = peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[390, 520], nu=[560, 720])
 
 
 
-    for u in range(0,len(epochsdata[1])):#channel loop
-        print(u)
-        samplespool=epochsdata[:,u,:]
-        for r in range(1,len(epochsdata)):# trial loop
+            #real trace done
+
+            print(r) #track which channel amount iteration you are at
+
+            #empty arrays for extraction of rms, peakamp 1&2 and repsective snrs
+            extractedrmssnr = np.zeros(
+                (extract))
+            extractedpeaksnr = np.zeros(
+                (extract))
+            extractedpeaktwosnr = np.zeros(
+                (extract))
+            extractedpeakamp = np.zeros(
+                (extract))
+            extractedpeaktwoamp = np.zeros(
+                (extract))
+            extractedrms = np.zeros(
+                (extract))
+
+            for bb in range(0, extract):
+                inextract = np.random.randint(len(samplespool), size=(r+1) * 50)
+                #now we get our peak values and rms values
+                extractedpeakamp[bb],  c= peak_minmax(samplespool[inextract].mean(0), pz=[260, 333], nu=[333, 420]) #second output islatency of peak
+                extractedpeaktwoamp[bb], cl= peak_minmax(samplespool[inextract].mean(0), pz=[390, 520], nu=[560, 720])
+                an,  cn = peak_minmax(samplespool[inextract].mean(0), pz=[40, 120], nu=[140, 220]) #this we don t save as it is useless outside of snr and can be calculated from snr
+                extractedrms[bb]= np.sqrt(np.mean(samplespool[inextract].mean(0)[260:510] ** 2))
+                extractedrmssnr[bb] = extractedrms[bb] / np.sqrt(np.mean(
+                    samplespool[inextract].mean(0)[
+                    0:250] ** 2))  # we want our pool of samples for extraction. the pool of samples is the total of the trials for that channel, so it goes outside the trial loop
+                extractedpeaksnr[bb] = extractedpeakamp[bb] / (an )
+                extractedpeaktwosnr[bb] = extractedpeaktwoamp[bb] / an
+
+
+
+            # at this point we have 10k snr values in 6 extracted variables: we get values for their stats, that s per tial and per channel
+            #for rms snr
+            bpsemrmssnr[r, u] = sp.stats.sem(extractedrmssnr, 0)
+            bpstdrmssnr[r, u] = np.std(extractedrmssnr, 0)
+            bprmssnr  [r, u] = np.mean(extractedrmssnr, 0)
             
-            extracted=np.zeros((extract))#first we make empty array for extraction. this array needs to hold 10000 rms/rms of mean
-            for bb in range (0,extract):
-                      inextract=np.random.randint( len( samplespool), size=r)
-                      extracted[bb]= np.sqrt(np.mean(samplespool[inextract].mean(0)[30:60]**2))    /  np.sqrt(np.mean(samplespool[inextract].mean(0)[0:30]**2)   )    #we want our pool of samples for extraction. the pool of samples is the total of the trials for that channel, so it goes outside the trial loop
+            sortedr = np.sort(extractedrmssnr, 0)
+            bpconfidencelrmssnr [r, u] = sortedr[int(extract*5/100)]
+            bpconfidencehrmssnr[r, u] = sortedr[int(extract*95/100)]
             
-            #at this point we have 10k snr values: we get values for their stats, that s per tial and per channel 
-            sem[r,u]=sp.stats.sem(extracted,0)
-            std[r,u]=np.std(extracted,0)
-            bpmean[r,u]=np.mean(extracted,0)
+            #now for peak 1 snr
+            bpsempeaksnr[r, u] = sp.stats.sem(extractedpeaksnr, 0)
+            bpstdpeaksnr[r, u] = np.std(extractedpeaksnr, 0)
+            bppeaksnr[r, u] = np.mean(extractedpeaksnr, 0)
 
-            sortedr=np.sort(extracted,0)
-            confidencel[r,u]=sortedr[60]
-            confidenceh[r,u]=sortedr[940]  
+            sortedr = np.sort(extractedpeaksnr, 0)
+            bpconfidencelpeaksnr[r, u] = sortedr[int(extract * 5 / 100)]
+            bpconfidencehpeaksnr[r, u] = sortedr[int(extract * 95 / 100)]
+            
+            #for peak two snr
+            bpsempeaktwosnr[r, u] = sp.stats.sem(extractedpeaktwosnr, 0)
+            bpstdpeaktwosnr[r, u] = np.std(extractedpeaktwosnr, 0)
+            bppeaktwosnr[r, u] = np.mean(extractedpeaktwosnr, 0)
+
+            sortedr = np.sort(extractedpeaktwosnr, 0)
+            bpconfidencelpeaktwosnr[r, u] = sortedr[int(extract * 5 / 100)]
+            bpconfidencehpeaktwosnr[r, u] = sortedr[int(extract * 95 / 100)]
+            
+            
+            #now all of the above for the values alone (not snr)
+
+            # for rms 
+            bpsemrms[r, u] = sp.stats.sem(extractedrms, 0)
+            bpstdrms[r, u] = np.std(extractedrms, 0)
+            bprms[r, u] = np.mean(extractedrms, 0)
+
+            sortedr = np.sort(extractedrms, 0)
+            bpconfidencelrms[r, u] = sortedr[int(extract * 5 / 100)]
+            bpconfidencehrms[r, u] = sortedr[int(extract * 95 / 100)]
+
+            # now for peak 1 amp
+            bpsempeakamp[r, u] = sp.stats.sem(extractedpeakamp, 0)
+            bpstdpeakamp[r, u] = np.std(extractedpeakamp, 0)
+            bppeakamp[r, u] = np.mean(extractedpeakamp, 0)
+
+            sortedr = np.sort(extractedpeakamp, 0)
+            bpconfidencelpeakamp[r, u] = sortedr[int(extract * 5 / 100)]
+            bpconfidencehpeakamp[r, u] = sortedr[int(extract * 95 / 100)]
+
+            # for peak two amp
+            bpsempeaktwoamp[r, u] = sp.stats.sem(extractedpeaktwoamp, 0)
+            bpstdpeaktwoamp[r, u] = np.std(extractedpeaktwoamp, 0)
+            bppeaktwoamp[r, u] = np.mean(extractedpeaktwoamp, 0)
+
+            sortedr = np.sort(extractedpeaktwoamp, 0)
+            bpconfidencelpeaktwoamp[r, u] = sortedr[int(extract * 5 / 100)]
+            bpconfidencehpeaktwoamp[r, u] = sortedr[int(extract * 95 / 100)]
+            
+            
+
+    return     bpsemrmssnr ,bpstdrmssnr,bprmssnr,bpsempeaksnr,bpstdpeaksnr,bppeaksnr,bpsempeaktwosnr,bpstdpeaktwosnr,bppeaktwosnr,bpconfidencelrmssnr,bpconfidencehrmssnr,bpconfidencelpeaksnr,bpconfidencehpeaksnr,bpconfidencelpeaktwosnr,bpconfidencehpeaktwosnr,bpsemrms,bpstdrms,bprms,bpsempeakamp,bpstdpeakamp,bppeakamp,bpsempeaktwoamp,bpstdpeaktwoamp,bppeaktwoamp,bpconfidencelrms,bpconfidencehrms,bpconfidencelpeakamp,bpconfidencehpeakamp,bpconfidencelpeaktwoamp,bpconfidencehpeaktwoamp,rms,peakamp,peaktwoamp,trace,stdtrace,semtrace
 
 
-    return sem,std,  bpmean, confidencel,confidenceh
-
-def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\TESTAUD_2020-11-16_15-14-52_m0002_1sandothers\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1):
-    import mne#this function cycles through all recordings for one recording session. b input is to tell where recordings'number starts from
-    global _out_folder
-    _out_folder = out_folder
+def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101",session=1, b=1):
+    import mne  # this function cycles through all recordings for one recording session. b input is to tell where recordings'number starts from
+    import pickle
     from glob import glob
-    Folder=folder
-    Files = sorted(glob(Folder+'/**/*.dat', recursive=True))
+    Folder = folder
+    Files = sorted(glob(Folder + '/**/*.dat', recursive=True))
 
-    for Fi,File in enumerate(Files):
-        recording=Fi+b#2*second animal
-        print('now processing recording'+str(Fi+b))
-        indexo,filenamex,soa, stimdur,mean,data,datar,triggers,timestamps,sfreq=loadOep(folder, session, recording)#get data
-        
-        if len(triggers)<100:# (to avoid processing recordings that are botched)
-            continue
-        raw,events=MNEify(indexo,data,timestamps,triggers,sfreq)
-        raw=filtering(raw, notch=50, highpass=None, lowpass=None,
-              fir_window="hamming", fir_design="firwin")
-        raw=filtering(raw, notch=None, highpass=None, lowpass=100,
-              fir_window="hamming", fir_design="firwin")
-        reject = dict(
-              eeg=280e-6, #  (EEG channels)
+    for Fi, File in enumerate(Files):
+        recording = Fi + b  # 2*second animal
+        print('now processing recording' + str(Fi + b))
 
-              )
-        if np.array(indexo).any():                 #hereby start processing experiments with index (experiments in which trials have different conditions/stimuli)
+        folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101"
+        indexo, filenamex, soa, stimdur, mean, data, triggers, timestamps, sfreq, oldfreq = loadOep(folder, session,recording,newfreq=5000)  # get data
+        import matplotlib.pyplot as plt
 
-            event_dict = {'stim_standard': 1, 'omission': 0}
-            epochs = mne.Epochs(raw, events, event_id=event_dict, tmin= -0.06, reject=reject, baseline=None, preload=True, flat = None, proj=False,reject_by_annotation=False)
-            while len(epochs.events)<len(events)*0.8:                 #this while loop is used to reject bad channels, that is channels that force dropping toomany epochs.
+        raw, events = MNEify(indexo, data, timestamps, triggers, sfreq, oldfreq=5000)
+        raw = filtering(raw, notch=50, highpass=None, lowpass=None,
+                        fir_window="hamming", fir_design="firwin")
+        raw = filtering(raw, notch=None, highpass=None, lowpass=100,
+                        fir_window="hamming", fir_design="firwin")
+        epochs = mne.Epochs(raw, events, tmin=-0.04, reject=None, baseline=None, preload=True, flat=None, proj=False,
+                            reject_by_annotation=False)
 
-                bd=epochs.ch_names
-                prol=np.sort(data,0)
-                ro=np.zeros((4000))
-                
-                for dd in range(1,4000):
-                    rr=np.zeros((len(data[0])))
-                    for i in range(0,len(data[0])):
-                        rr[i]=np.mean(prol[:dd,i]-prol[-dd:,i])
-                    ro[dd-1]=(np.argwhere(rr==min(rr)))
-                for u,uu in enumerate(bd):
-                    rr[u]=sum(ro==u)
-                todrop=np.argwhere(rr==max(rr))
-                a=[str( bd[todrop[0,0]])]
-                raw.info['bads']=a
-                print(str( bd[todrop[0,0]]))
-                raw.pick_types(eeg=True, exclude='bads')
-                
-                epochs = mne.Epochs(raw, events, tmin= -0.06,event_id=event_dict, reject=reject, baseline=None, preload=True, flat = None, proj=False,reject_by_annotation=False, verbose='WARNING')
-                data=np.delete(data,todrop[0,0],1)
-            epochedstim=np.array(epochs['stim_standard']) 
-            epochedomis=np.array(epochs['omission']) 
+        # dropping=[]
 
-        else:                 #ereby processing of experiments in which laltrials are the same(no index)
-           
-            epochs = mne.Epochs(raw, events, tmin= -0.06, reject=reject, baseline=None, preload=True, flat = None, proj=False,reject_by_annotation=False)
-            #dropping=[]
-            while len(epochs.events)<len(events)*0.8:                #this loop to identify bad channels and avoid dropping too many epochs.
-                bd=epochs.ch_names
+        epochsdata = epochs._data
+        bpsemrmssnr, bpstdrmssnr, bprmssnr, bpsempeaksnr, bpstdpeaksnr, bppeaksnr, bpsempeaktwosnr, bpstdpeaktwosnr, bppeaktwosnr, bpconfidencelrmssnr, bpconfidencehrmssnr, bpconfidencelpeaksnr, bpconfidencehpeaksnr, bpconfidencelpeaktwosnr, bpconfidencehpeaktwosnr, bpsemrms, bpstdrms, bprms, bpsempeakamp, bpstdpeakamp, bppeakamp, bpsempeaktwoamp, bpstdpeaktwoamp, bppeaktwoamp, bpconfidencelrms, bpconfidencehrms, bpconfidencelpeakamp, bpconfidencehpeakamp, bpconfidencelpeaktwoamp, bpconfidencehpeaktwoamp, rms, peakamp, peaktwoamp, trace, stdtrace, semtrace=Bootsrapper_snr(epochsdata)
+        savedict={"bpsemrmssnr":bpsemrmssnr,"bpstdrmssnr":bpstdrmssnr,"bprmssnr":bprmssnr,"bpsempeaksnr":bpsempeaksnr,"bpstdpeaksnr":bpstdpeaksnr,"bppeaksnr":bppeaksnr,"bpsempeaktwosnr":bpsempeaktwosnr,"bpstdpeaktwosnr":bpstdpeaktwosnr,"bppeaktwosnr":bppeaktwosnr,"bpconfidencelrmssnr":bpconfidencelrmssnr, "bpconfidencehrmssnr":bpconfidencehrmssnr, "bpconfidencelpeaksnr":bpconfidencelpeaksnr,"bpconfidencehpeaksnr":bpconfidencehpeaksnr,"bpconfidencelpeaktwosnr":bpconfidencelpeaktwosnr,"bpconfidencehpeaktwosnr":bpconfidencehpeaktwosnr, "bpsemrms":bpsemrms,"bpstdrms":bpstdrms,"bprms":bprms,"bpsempeakamp":bpsempeakamp, "bpstdpeakamp":bpstdpeakamp, "bppeakamp":bppeakamp, "bpsempeaktwoamp":bpsempeaktwoamp, "bpstdpeaktwoamp":bpstdpeaktwoamp, "bppeaktwoamp":bppeaktwoamp, "bpconfidencelrms":bpconfidencelrms, "bpconfidencehrms":bpconfidencehrms, "bpconfidencelpeakamp":bpconfidencelpeakamp, "bpconfidencehpeakamp":bpconfidencehpeakamp, "bpconfidencelpeaktwoamp":bpconfidencelpeaktwoamp, "bpconfidencehpeaktwoamp":bpconfidencehpeaktwoamp, "rms":rms, "peakamp":peakamp, "peaktwoamp":peaktwoamp, "trace":trace,"stdtrace":stdtrace,"semtrace":semtrace}
+        with open(folder[45:70]+'_recording'+str(recording)+'.pickle', 'wb') as handle:
+            pickle.dump(savedict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            
-                
-            
-                prol=np.sort(data,0)
-                ro=np.zeros((4000))
-                
-                for dd in range(1,4000):
-                    rr=np.zeros((len(data[0])))
-                    for i in range(0,len(data[0])):
-                        rr[i]=np.mean(prol[:dd,i]-prol[-dd:,i])
-                    ro[dd-1]=(np.argwhere(rr==min(rr)))
-                for u,uu in enumerate(bd):
-                    rr[u]=sum(ro==u)
-                todrop=np.argwhere(rr==max(rr))
-                a=[str( bd[todrop[0,0]])]
-                #dropping.append(a[0])
-                raw.info['bads']=a
-                print(str( bd[todrop[0,0]]))
-                raw.pick_types(eeg=True, exclude='bads')
-                epochs = mne.Epochs(raw, events, tmin= -0.06, reject=reject, baseline=None, preload=True, flat = None, proj=False,reject_by_annotation=False, verbose='WARNING')
-                data=np.delete(data,todrop[0,0],1)
-            epoched=np.array(epochs) 
-            evoked=epochs.average()
+        # indexo, filenamex, soa, stimdur, mean, data, datar, triggers, timestamps, sfreq = loadOep(folder, session,
+        #                                                                                           recording)  # get data
+        #
+        # if len(triggers) < 100:  # (to avoid processing recordings that are botched)
+        #     continue
+        # raw, events = MNEify(indexo, data, timestamps, triggers, sfreq)
+        # raw = filtering(raw, notch=50, highpass=None, lowpass=None,
+        #                 fir_window="hamming", fir_design="firwin")
+        # raw = filtering(raw, notch=None, highpass=None, lowpass=100,
+        #                 fir_window="hamming", fir_design="firwin")
+        # reject = dict(
+        #     eeg=280e-6,  # (EEG channels)
+        #
+        # )
+        # if np.array(
+        #         indexo).any():  # hereby start processing experiments with index (experiments in which trials have different conditions/stimuli)
+        #
+        #     event_dict = {'stim_standard': 1, 'omission': 0}
+        #     epochs = mne.Epochs(raw, events, event_id=event_dict, tmin=-0.06, reject=reject, baseline=None,
+        #                         preload=True, flat=None, proj=False, reject_by_annotation=False)
+        #     while len(epochs.events) < len(
+        #             events) * 0.8:  # this while loop is used to reject bad channels, that is channels that force dropping toomany epochs.
+        #
+        #         bd = epochs.ch_names
+        #         prol = np.sort(data, 0)
+        #         ro = np.zeros((4000))
+        #
+        #         for dd in range(1, 4000):
+        #             rr = np.zeros((len(data[0])))
+        #             for i in range(0, len(data[0])):
+        #                 rr[i] = np.mean(prol[:dd, i] - prol[-dd:, i])
+        #             ro[dd - 1] = (np.argwhere(rr == min(rr)))
+        #         for u, uu in enumerate(bd):
+        #             rr[u] = sum(ro == u)
+        #         todrop = np.argwhere(rr == max(rr))
+        #         a = [str(bd[todrop[0, 0]])]
+        #         raw.info['bads'] = a
+        #         print(str(bd[todrop[0, 0]]))
+        #         raw.pick_types(eeg=True, exclude='bads')
+        #
+        #         epochs = mne.Epochs(raw, events, tmin=-0.06, event_id=event_dict, reject=reject, baseline=None,
+        #                             preload=True, flat=None, proj=False, reject_by_annotation=False, verbose='WARNING')
+        #         data = np.delete(data, todrop[0, 0], 1)
+        #     epochedstim = np.array(epochs['stim_standard'])
+        #     epochedomis = np.array(epochs['omission'])
+        #
+        # else:  # ereby processing of experiments in which laltrials are the same(no index)
+        #
+        #     epochs = mne.Epochs(raw, events, tmin=-0.06, reject=reject, baseline=None, preload=True, flat=None,
+        #                         proj=False, reject_by_annotation=False)
+        #     # dropping=[]
+        #     while len(epochs.events) < len(
+        #             events) * 0.8:  # this loop to identify bad channels and avoid dropping too many epochs.
+        #         bd = epochs.ch_names
+        #
+        #         prol = np.sort(data, 0)
+        #         ro = np.zeros((4000))
+        #
+        #         for dd in range(1, 4000):
+        #             rr = np.zeros((len(data[0])))
+        #             for i in range(0, len(data[0])):
+        #                 rr[i] = np.mean(prol[:dd, i] - prol[-dd:, i])
+        #             ro[dd - 1] = (np.argwhere(rr == min(rr)))
+        #         for u, uu in enumerate(bd):
+        #             rr[u] = sum(ro == u)
+        #         todrop = np.argwhere(rr == max(rr))
+        #         a = [str(bd[todrop[0, 0]])]
+        #         # dropping.append(a[0])
+        #         raw.info['bads'] = a
+        #         print(str(bd[todrop[0, 0]]))
+        #         raw.pick_types(eeg=True, exclude='bads')
+        #         epochs = mne.Epochs(raw, events, tmin=-0.06, reject=reject, baseline=None, preload=True, flat=None,
+        #                             proj=False, reject_by_annotation=False, verbose='WARNING')
+        #         data = np.delete(data, todrop[0, 0], 1)
+        #     epoched = np.array(epochs)
+        #     evoked = epochs.average()
+
 
 #
-#run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)#
-#run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=2)
-#run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOANONSOA_2020-11-16_15-14-52_m0002\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)
+# run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)#
+# run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=2)
+# run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOANONSOA_2020-11-16_15-14-52_m0002\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)
+run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,b=1)#
 # folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
 # indexo,filenamex,soa, stimdur,mean,data,datar,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=3)#get data
-            
-folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
-indexo,filenamex,soa, stimdur,mean,data,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=4, newfreq=5000)#get data
-import matplotlib.pyplot as plt
-raw,events=MNEify(indexo,data,timestamps,triggers,sfreq,oldfreq=5000)
-raw=filtering(raw, notch=50, highpass=None, lowpass=None,
-      fir_window="hamming", fir_design="firwin")
-raw=filtering(raw, notch=None, highpass=None, lowpass=100,
-      fir_window="hamming", fir_design="firwin")
-epochs = mne.Epochs(raw, events, tmin= 0, reject=None, baseline=None, preload=True, flat = None, proj=False,reject_by_annotation=False)
 
-#dropping=[]
-
-epoched=np.array(epochs) 
-evoked=epochs.average()
+# folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
+# indexo, filenamex, soa, stimdur, mean, data, triggers, timestamps, sfreq, oldfreq = loadOep(folder, session=1,
+#                                                                                             recording=4,
+#                                                                                             newfreq=5000)  # get data
+# import matplotlib.pyplot as plt
+#
+# raw, events = MNEify(indexo, data, timestamps, triggers, sfreq, oldfreq=5000)
+# raw = filtering(raw, notch=50, highpass=None, lowpass=None,
+#                 fir_window="hamming", fir_design="firwin")
+# raw = filtering(raw, notch=None, highpass=None, lowpass=100,
+#                 fir_window="hamming", fir_design="firwin")
+# epochs = mne.Epochs(raw, events, tmin=-0.04, reject=None, baseline=None, preload=True, flat=None, proj=False,
+#                     reject_by_annotation=False)
+#
+# # dropping=[]
+#
+# epochsdata = epochs._data
+# evoked=epochs.average()
 # evoked.plot()
 # ts_args = dict(time_unit='s')
 # topomap_args = dict(sensors=True, time_unit='s')
