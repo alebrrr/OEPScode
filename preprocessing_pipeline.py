@@ -9,9 +9,7 @@ from matplotlib import pyplot as plt, patches
 import mne
 
 
-def loadOep(
-        folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",
-        session=1, newfreq=500, recording=10, mainevent=8):
+def loadOep(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101",session=1, newfreq=1000, recording=1, mainevent=8):
     """
     all these functions rely on filenames and folders retaining the structure set by oeps. h5 files of a certain recording-experiment must be put in the corresponding recordingN (e.g. recording5) folder.
 
@@ -146,8 +144,7 @@ def loadOep(
         ttl = np.argwhere(ttll == mainevent)  # get trial event.
         tstp = np.load(FilesEv[3])  # load timestamps
         data = Data[Proc][Exp][str(recording - 1)]
-        chunk = int(
-            (len(Data[Proc][Exp][str(recording - 1)]) / len(ttl)) / (int(f / newfreq)))  # size of trial in datapoints
+        chunk = int((len(Data[Proc][Exp][str(recording - 1)]) / len(ttl)) / (int(f / newfreq)))  # size of trial in datapoints
 
         filenamex = File  # to set aside the filename of the actual recording we are working with after we exit the loop through all FIles for that session
 
@@ -374,12 +371,12 @@ def peak_minmax(trace, pz=[60, 140], nu=[160, 240]):
     """
 
     bb, roe = find_peaks(trace[pz[0]:pz[1]], min_dist=1, thresh=0.3, degree=None)
-    tt, roe = find_peaks(0 - trace[nu[0]:nu[1]], min_dist=1, thresh=0.0, degree=None)
-    pospeakindex = pz[0] + max(bb)
+    tt, roe = find_peaks(0 - trace[nu[0]:nu[1]], min_dist=1, thresh=0.3, degree=None)
+    pospeakindex = pz[0]+(bb[max(trace[pz[0]:pz[1]][bb])==trace[pz[0]:pz[1]][bb]])
     pospeak = trace[pospeakindex]
-    negpeakindex = nu[0] + max(tt)
+    negpeakindex = nu[0] + (tt[max(0-trace[nu[0]:nu[1]][tt])==0-trace[nu[0]:nu[1]][tt]])
     negpeak = trace[negpeakindex]
-    ampl=pospeak-negpeak
+    ampl=max([pospeak,negpeak])-min([pospeak,negpeak])
 
     return ampl, pospeakindex
 
@@ -612,39 +609,46 @@ def Bootsrapper_snr(epochsdata):
     peakamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
 
     peaktwoamp = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    #peak noise
+    bpsempeaknoise= np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpstdpeaknoise= np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bppeaknoise = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+
+    bpconfidencelpeaknoise = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
+    bpconfidencehpeaknoise = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1])))
 
 
     # we also want to store the actual trace with sem std and conf int
 
     # real trace, with sem and std
-    trace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
-    stdtrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
-    semtrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+    trace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1]), len(epochsdata[0,0,:])))
+    stdtrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1]), len(epochsdata[0,0,:])))
+    semtrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1]), len(epochsdata[0,0,:])))
 
     # confidence intervals for all the above, at 5%
 
 
-    confidenceltrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
-    confidencehtrace= np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1], len(epochsdata[0,0,:]))))
+    confidenceltrace = np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1]), len(epochsdata[0,0,:])))
+    confidencehtrace= np.zeros((int(len(epochsdata[:, 0]) / 50), len(epochsdata[1]), len(epochsdata[0,0,:])))
     for u in range(0, len(epochsdata[1])):  # channel loop
         print("----------------------------", u)#track what channel iteration you are at
         samplespool = epochsdata[:, u, :]
-        for r in range(1, int((len(epochsdata) / 50))):  # trial loop
+        for r in range(0, int((len(epochsdata) / 50))):  # trial loop
             #here we save the real trace
 
             trace[r,u,:]=epochsdata[:(r+1)*50, u, :].mean(0)
             semtrace[r, u,:] = sp.stats.sem(epochsdata[:(r+1)*50, u, :], 0)
             stdtrace[r, u,:] = np.std(epochsdata[:(r+1)*50, u, :], 0)
             sortedtrace = np.sort(epochsdata[:(r+1)*50, u, :], 0)
-            confidenceltrace[r, u,:] = sortedtrace[int(extract*5/100)]
-            confidencehtrace[r, u,:] = sortedtrace[int(extract*95/100)]
+            confidenceltrace[r, u,:] = sortedtrace[int((r+1)*50*5/100),:]
+            confidencehtrace[r, u,:] = sortedtrace[int((r+1)*50*95/100),:]
 
             #and the real values of peaks and rms
             rms [r,u]= np.sqrt(np.mean(epochsdata[:(r+1)*50, u, :].mean(0)[260:510] ** 2))
 
-            peakamp [r,u]= peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[260, 333], nu=[333, 420])
+            peakamp [r,u],gg= peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[260, 333], nu=[333, 420])
 
-            peaktwoamp [r,u]  = peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[390, 520], nu=[560, 720])
+            peaktwoamp [r,u],gg  = peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[390, 520], nu=[560, 810])
 
 
 
@@ -661,6 +665,8 @@ def Bootsrapper_snr(epochsdata):
                 (extract))
             extractedpeakamp = np.zeros(
                 (extract))
+            extractedpeaknoise = np.zeros(
+                (extract))
             extractedpeaktwoamp = np.zeros(
                 (extract))
             extractedrms = np.zeros(
@@ -670,14 +676,14 @@ def Bootsrapper_snr(epochsdata):
                 inextract = np.random.randint(len(samplespool), size=(r+1) * 50)
                 #now we get our peak values and rms values
                 extractedpeakamp[bb],  c= peak_minmax(samplespool[inextract].mean(0), pz=[260, 333], nu=[333, 420]) #second output islatency of peak
-                extractedpeaktwoamp[bb], cl= peak_minmax(samplespool[inextract].mean(0), pz=[390, 520], nu=[560, 720])
-                an,  cn = peak_minmax(samplespool[inextract].mean(0), pz=[40, 120], nu=[140, 220]) #this we don t save as it is useless outside of snr and can be calculated from snr
+                extractedpeaktwoamp[bb], cl= peak_minmax(samplespool[inextract].mean(0), pz=[390, 520], nu=[560, 900])
+                extractedpeaknoise[bb],  cn = peak_minmax(samplespool[inextract].mean(0), pz=[0, 220], nu=[0, 220]) #this we don t save as it is useless outside of snr and can be calculated from snr
                 extractedrms[bb]= np.sqrt(np.mean(samplespool[inextract].mean(0)[260:510] ** 2))
                 extractedrmssnr[bb] = extractedrms[bb] / np.sqrt(np.mean(
                     samplespool[inextract].mean(0)[
                     0:250] ** 2))  # we want our pool of samples for extraction. the pool of samples is the total of the trials for that channel, so it goes outside the trial loop
-                extractedpeaksnr[bb] = extractedpeakamp[bb] / (an )
-                extractedpeaktwosnr[bb] = extractedpeaktwoamp[bb] / an
+                extractedpeaksnr[bb] = extractedpeakamp[bb] / extractedpeaknoise[bb]
+                extractedpeaktwosnr[bb] = extractedpeaktwoamp[bb] / extractedpeaknoise[bb]
 
 
 
@@ -739,12 +745,20 @@ def Bootsrapper_snr(epochsdata):
             bpconfidencelpeaktwoamp[r, u] = sortedr[int(extract * 5 / 100)]
             bpconfidencehpeaktwoamp[r, u] = sortedr[int(extract * 95 / 100)]
             
-            
+            # now for noise amp
+            bpsempeaknoise[r, u] = sp.stats.sem(extractedpeaknoise, 0)
+            bpstdpeaknoise[r, u] = np.std(extractedpeaknoise, 0)
+            bppeaknoise[r, u] = np.mean(extractedpeaknoise, 0)
+
+            sortedr = np.sort(extractedpeaknoise, 0)
+            bpconfidencelpeaknoise[r, u] = sortedr[int(extract * 5 / 100)]
+            bpconfidencehpeaknoise[r, u] = sortedr[int(extract * 95 / 100)]
+
 
     return     bpsemrmssnr ,bpstdrmssnr,bprmssnr,bpsempeaksnr,bpstdpeaksnr,bppeaksnr,bpsempeaktwosnr,bpstdpeaktwosnr,bppeaktwosnr,bpconfidencelrmssnr,bpconfidencehrmssnr,bpconfidencelpeaksnr,bpconfidencehpeaksnr,bpconfidencelpeaktwosnr,bpconfidencehpeaktwosnr,bpsemrms,bpstdrms,bprms,bpsempeakamp,bpstdpeakamp,bppeakamp,bpsempeaktwoamp,bpstdpeaktwoamp,bppeaktwoamp,bpconfidencelrms,bpconfidencehrms,bpconfidencelpeakamp,bpconfidencehpeakamp,bpconfidencelpeaktwoamp,bpconfidencehpeaktwoamp,rms,peakamp,peaktwoamp,trace,stdtrace,semtrace
 
 
-def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101",session=1, b=1):
+def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101",session=1):
     import mne  # this function cycles through all recordings for one recording session. b input is to tell where recordings'number starts from
     import pickle
     from glob import glob
@@ -752,14 +766,23 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021
     Files = sorted(glob(Folder + '/**/*.dat', recursive=True))
 
     for Fi, File in enumerate(Files):
-        recording = Fi + b  # 2*second animal
-        print('now processing recording' + str(Fi + b))
+        recording = Fi + 1  # 2*second animal
+        print('now processing recording' + str(Fi + 1))
 
-        folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101"
-        indexo, filenamex, soa, stimdur, mean, data, triggers, timestamps, sfreq, oldfreq = loadOep(folder, session,recording,newfreq=5000)  # get data
+        indexo, filenamex, soa, stimdur, mean, data, triggers, timestamps, sfreq, oldfreq = loadOep(folder, session=session,
+                                                                                                    recording=recording,
+                                                                                                    newfreq=5000)
         import matplotlib.pyplot as plt
 
         raw, events = MNEify(indexo, data, timestamps, triggers, sfreq, oldfreq=5000)
+        #hack for february data to align
+        if recording==1:
+            events[:,0]+=165
+        elif recording == 2:
+            events[:, 0] += 185
+        elif recording == 3:
+            events[:, 0] += 45
+
         raw = filtering(raw, notch=50, highpass=None, lowpass=None,
                         fir_window="hamming", fir_design="firwin")
         raw = filtering(raw, notch=None, highpass=None, lowpass=100,
@@ -767,7 +790,18 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021
         epochs = mne.Epochs(raw, events, tmin=-0.04, reject=None, baseline=None, preload=True, flat=None, proj=False,
                             reject_by_annotation=False)
 
-        # dropping=[]
+        # from autoreject import AutoReject  # import the autoreject module . all this stuff is functionally useless
+        # ar = AutoReject(n_interpolate=[3, 6, 12], random_state=42)
+        # epochs_ar, reject_log = ar.fit_transform(epochs, return_log=True)
+        # ica = mne.preprocessing.ICA(n_components=0.99, method="fastica")
+        # ica.fit(epochs_ar)
+        # ica_sources = ica.get_sources(epochs_ar)
+        # rr = ica_sources._data
+        # rrr = rr[:, :, :].mean(0)
+        # byo = np.zeros((len(rrr)))
+        # for i in range(0, len(rrr)):
+        #     byo[i] = (max(rrr[i, 250:500]) - min(rrr[i, 250:500]))
+        # epochs_ica = ica.apply(epochs_ar, exclude=np.argwhere(byo == min(byo))[0])
 
         epochsdata = epochs._data
         bpsemrmssnr, bpstdrmssnr, bprmssnr, bpsempeaksnr, bpstdpeaksnr, bppeaksnr, bpsempeaktwosnr, bpstdpeaktwosnr, bppeaktwosnr, bpconfidencelrmssnr, bpconfidencehrmssnr, bpconfidencelpeaksnr, bpconfidencehpeaksnr, bpconfidencelpeaktwosnr, bpconfidencehpeaktwosnr, bpsemrms, bpstdrms, bprms, bpsempeakamp, bpstdpeakamp, bppeakamp, bpsempeaktwoamp, bpstdpeaktwoamp, bppeaktwoamp, bpconfidencelrms, bpconfidencehrms, bpconfidencelpeakamp, bpconfidencehpeakamp, bpconfidencelpeaktwoamp, bpconfidencehpeaktwoamp, rms, peakamp, peaktwoamp, trace, stdtrace, semtrace=Bootsrapper_snr(epochsdata)
@@ -857,27 +891,43 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021
 # run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)#
 # run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=2)
 # run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOANONSOA_2020-11-16_15-14-52_m0002\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)
-run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,b=1)#
+run_pipeline_n1(folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101",session=1)#
 # folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
 # indexo,filenamex,soa, stimdur,mean,data,datar,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=3)#get data
-
+#
 # folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
 # indexo, filenamex, soa, stimdur, mean, data, triggers, timestamps, sfreq, oldfreq = loadOep(folder, session=1,
-#                                                                                             recording=4,
-#                                                                                             newfreq=5000)  # get data
+#                                                                                             recording=2, newfreq=5000)  # get data
 # import matplotlib.pyplot as plt
 #
 # raw, events = MNEify(indexo, data, timestamps, triggers, sfreq, oldfreq=5000)
 # raw = filtering(raw, notch=50, highpass=None, lowpass=None,
-#                 fir_window="hamming", fir_design="firwin")
+#                 fir_wi.99, method="fastica")
+# ica.fit(epochs_ar)
+# ica_sources = ica.get_sources(epochs_ar)ndow="hamming", fir_design="firwin")
 # raw = filtering(raw, notch=None, highpass=None, lowpass=100,
 #                 fir_window="hamming", fir_design="firwin")
 # epochs = mne.Epochs(raw, events, tmin=-0.04, reject=None, baseline=None, preload=True, flat=None, proj=False,
 #                     reject_by_annotation=False)
+# from autoreject import AutoReject # import the autoreject module .
+# ar=AutoReject(n_interpolate=[3,6,12], random_state=42)
+# epochs_ar, reject_log = ar.fit_transform(epochs, return_log=True)
+# ica = mne.preprocessing.ICA(n_components=0
 #
-# # dropping=[]
 #
-# epochsdata = epochs._data
+# rr=ica_sources._data
+# rrr=rr[:,:,:].mean(0)
+# byo = np.zeros((len(rrr)))
+# for i in range(0, len(rrr)):
+#     byo[i] = (max(rrr[i, 250:500]) - min(rrr[i, 250:500]))
+# epochs_ica = ica.apply(epochs_ar, exclude=np.argwhere(byo==min(byo))[0])
+#
+# epochsdata = epochs_ica._data
+
+# #
+# # # dropping=[]
+# #
+# # epochsdata = epochs._data
 # evoked=epochs.average()
 # evoked.plot()
 # ts_args = dict(time_unit='s')
