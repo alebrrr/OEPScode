@@ -424,76 +424,6 @@ def noise_inverter(epochedt):
     return epochedt
 
 
-def snr_peak_by_trial(epoched):
-    """
-        
-     calculate snr in a number of different manners
-    
-
-    Parameters
-    ----------
-    epoched : array
-         obtained as np.array(epochs['stim_standard']) (if epochs from different events otherwise  np.array(epochs) )
-
-
-    Returns
-    -------
-    all arrays
-    rmsnp=rms of n1 complex
-    snr_before_event=rmsnp divided by rms of epoch same size pre event, 
-    snr_later=as above but after as far as poss from event, 
-    snr_avg_inverted=rmsnp divided by the rms calculated on the inverted epochs(see noise inverter func),
-    peaksnr= snr calculated on peak amplitudes
-    peaksnrwide,snr calculated on peaks from a wide epoch
-    peakamp, amplitude peak to peak
-    posindex,index of positive peak after event
-    negindex= index of neg peak after event
-    """
-    epochedt = epoched.copy()
-    snr_before_event = np.zeros((len(epoched[1]), len(epoched)))
-    rmsnp = np.zeros((len(epoched[1]), len(epoched)))
-    snr_later = np.zeros((len(epoched[1]), len(epoched)))
-    snr_avg_inverted = np.zeros((len(epoched[1]), len(epoched)))
-    bbbb = np.zeros((len(epoched[1]), len(epoched)))
-    mmmm = np.zeros((len(epoched[1]), len(epoched)))
-    posindex = np.zeros((len(epoched[1]), len(epoched)))
-    negindex = np.zeros((len(epoched[1]), len(epoched)))
-    lllll = np.zeros((len(epoched[1]), len(epoched)))
-    ddddd = np.zeros((len(epoched[1]), len(epoched)))
-    bbbbb = np.zeros((len(epoched[1]), len(epoched)))
-    maxmin = np.zeros((len(epoched[1]), len(epoched)))
-    mmmmm = np.zeros((len(epoched[1]), len(epoched)))
-    inverted = np.sqrt(np.mean(noise_inverter(epochedt).mean(0) ** 2))
-    for gg in range(0, len(epoched[1])):
-        print(gg)
-        for ii in range(1, len(epoched)):
-            rmsnp[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60],
-                                                    0) ** 2))  # for epoched at -0.6 tith 30 dp from event, comparing with before event
-            maxmin[gg, ii] = np.max((np.mean(epoched[0:ii, gg, 150:], 0))) - np.min(
-                (np.mean(epoched[0:ii, gg, 150:], 0)))
-
-            snr_before_event[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60], 0) ** 2)) / np.sqrt(np.mean(
-                np.mean(epoched[0:ii, gg, 0:30],
-                        0) ** 2))  # for epoched at -0.6 tith 30 dp from event, comparing with before event
-            snr_later[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60], 0) ** 2)) / np.sqrt(np.mean(
-                np.mean(epoched[0:ii, gg, -40:-10],
-                        0) ** 2))  # for epoched at -0.6 tith 30 dp from event, comparing with latest from event
-            snr_avg_inverted[gg, ii] = np.sqrt(np.mean(np.mean(epoched[0:ii, gg, 30:60],
-                                                               0) ** 2)) / inverted  # for epoched at -0.6 tith 30 dp from event, comparing with Schimmel(1967)
-            bbbb[gg, ii], mmmm[gg, ii], posindex[gg, ii], negindex[gg, ii] = peak_minmax(
-                (np.mean(epoched[0:ii, gg, :], 0)))  # this saves Voltage of p0 and n1 and their positions
-            bbbbb[gg, ii], mmmmm[gg, ii], lllll[gg, ii], ddddd[gg, ii] = peak_minmax((np.mean(epoched[0:ii, gg, :], 0)),
-                                                                                     [0, 15], [15,
-                                                                                               30])  # this gets a pos and neg peak from the pre stim interval
-    peakamp = (bbbb - mmmm)
-    peaknoise = np.sqrt((bbbbb - mmmmm) ** 2)
-    peaksnr = peakamp / peaknoise
-    peaksnr = peakamp / peaknoise
-    peaksnrwide = peakamp / maxmin
-
-    return rmsnp, snr_before_event, snr_later, snr_avg_inverted, peaksnr, peaksnrwide, peakamp, posindex, negindex
-
-
 def filtering(raw, notch=None, highpass=None, lowpass=None,
               fir_window="hamming", fir_design="firwin"):
     """
@@ -535,10 +465,39 @@ def filtering(raw, notch=None, highpass=None, lowpass=None,
 
     return raw
 
+def dprimer(epochsdatasinglechannel, noiseref=[0,200]):
+    "this function takes a 2d array of epochs, calculates average and std of the signal in a pre-stimulus epoch, and uses it to calculate dprime against a slider (avg and std ofdatapoint across trials)"
+    dprime=np.zeros((len(epochsdata[0])))
+    noiseavg=epochsdatasinglechannel[:,noiseref[0]:noiseref[1]].mean()
+    noisestd=epochsdatasinglechannel[:,noiseref[0]:noiseref[1]].std()
+    for i in range(0,len(epochsdatasinglechannel[0])):
+        dprime[i]=abs(epochsdatasinglechannel[:,i].mean()-noiseavg)/np.sqrt((epochsdatasinglechannel[:,i].std()+noisestd)/2)
+    return dprime
+def bootstrapcore(epochsdatasinglechannel, function,functionarguments,trialstep=50,extract=1000):
+        """"
+        this function takes a 2d array of epochs and cycles through the trials taking a trial pool of the size of trialstep, increasing by trialstep
+        (e.g. trialstep =50 the trial pool will be the first 50,100,150,200, 250 ecc trials successively)
+        each pool is then sampled, for the same amount of trials, an amount of times equal to the extract input.
+        so from the 50 trials pool, with extract= 1000, 1000 arrays of 50 trials, extracted from trialpool with replacement
+        these arrays are each fed to an input function, the output of which is stored in a list
+        """""
+        storage=list()
+        samplespool = epochsdatasinglechannel
+        for r in range(0, int((len(epochsdatasinglechannel) / trialstep))):  # trial loop
+            samplespoolt=samplespool[:(r+1) * trialstep,:]
 
-def Bootsrapper_snr(epochsdata):
+            for bb in range(0, extract):
+                inextract = np.random.randint(len(samplespoolt), size=(r+1) * trialstep)
+
+                storage.append(function(samplespoolt[inextract],functionarguments))
+
+        return storage
+
+
+
+def Bootsrapper_snr(epochsdata,startrms=260,endrms=510,startnoiserms= 0, endnoiserms=250, startpeak=260, endpeak= 333 ,negpeak=333, negendpeak=420,secondpeak=390, secondendpeak=520, negsecondpeak=560, negsecondendpeak=810, noisepeak=0, noisendpeak=220 ):
     """
-    this function calculates bootstrap snr in 50 trials increments
+    this function calculates bootstrap snr in 50 trials increments. Also returns average trace
 
     Parameters
     ----------
@@ -644,11 +603,11 @@ def Bootsrapper_snr(epochsdata):
             confidencehtrace[r, u,:] = sortedtrace[int((r+1)*50*95/100),:]
 
             #and the real values of peaks and rms
-            rms [r,u]= np.sqrt(np.mean(epochsdata[:(r+1)*50, u, :].mean(0)[260:510] ** 2))
+            rms [r,u]= np.sqrt(np.mean(epochsdata[:(r+1)*50, u, :].mean(0)[startrms:endrms] ** 2))
 
-            peakamp [r,u],gg= peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[260, 333], nu=[333, 420])
+            peakamp [r,u],gg= peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[startpeak, endpeak], nu=[negpeak, negendpeak])
 
-            peaktwoamp [r,u],gg  = peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[390, 520], nu=[560, 810])
+            peaktwoamp [r,u],gg  = peak_minmax(epochsdata[:(r+1)*50, u, :].mean(0), pz=[secondpeak, secondendpeak], nu=[negsecondpeak, negsecondendpeak])
 
 
 
@@ -671,17 +630,16 @@ def Bootsrapper_snr(epochsdata):
                 (extract))
             extractedrms = np.zeros(
                 (extract))
-
+            samplespoolt=samplespool[:(r+1) * 50,:]
             for bb in range(0, extract):
-                inextract = np.random.randint(len(samplespool), size=(r+1) * 50)
+                inextract = np.random.randint(len(samplespoolt), size=(r+1) * 50)
                 #now we get our peak values and rms values
-                extractedpeakamp[bb],  c= peak_minmax(samplespool[inextract].mean(0), pz=[260, 333], nu=[333, 420]) #second output islatency of peak
-                extractedpeaktwoamp[bb], cl= peak_minmax(samplespool[inextract].mean(0), pz=[390, 520], nu=[560, 900])
-                extractedpeaknoise[bb],  cn = peak_minmax(samplespool[inextract].mean(0), pz=[0, 220], nu=[0, 220]) #this we don t save as it is useless outside of snr and can be calculated from snr
-                extractedrms[bb]= np.sqrt(np.mean(samplespool[inextract].mean(0)[260:510] ** 2))
+                extractedpeakamp[bb],  c= peak_minmax(samplespool[inextract].mean(0), pz=[startpeak, endpeak], nu=[negpeak, negendpeak]) #second output islatency of peak
+                extractedpeaktwoamp[bb], cl= peak_minmax(samplespool[inextract].mean(0), pz=[secondpeak, secondendpeak], nu=[negsecondpeak, negsecondendpeak])
+                extractedpeaknoise[bb],  cn = peak_minmax(samplespool[inextract].mean(0), pz=[noisepeak, noisendpeak], nu=[noisepeak, noisendpeak]) #this we don t save as it is useless outside of snr and can be calculated from snr
+                extractedrms[bb]= np.sqrt(np.mean(samplespool[inextract].mean(0)[startrms:endrms] ** 2))
                 extractedrmssnr[bb] = extractedrms[bb] / np.sqrt(np.mean(
-                    samplespool[inextract].mean(0)[
-                    0:250] ** 2))  # we want our pool of samples for extraction. the pool of samples is the total of the trials for that channel, so it goes outside the trial loop
+                    samplespool[inextract].mean(0)[startnoiserms:endnoiserms] ** 2))  # we want our pool of samples for extraction. the pool of samples is the total of the trials for that channel, so it goes outside the trial loop
                 extractedpeaksnr[bb] = extractedpeakamp[bb] / extractedpeaknoise[bb]
                 extractedpeaktwosnr[bb] = extractedpeaktwoamp[bb] / extractedpeaknoise[bb]
 
@@ -758,7 +716,11 @@ def Bootsrapper_snr(epochsdata):
     return     bpsemrmssnr ,bpstdrmssnr,bprmssnr,bpsempeaksnr,bpstdpeaksnr,bppeaksnr,bpsempeaktwosnr,bpstdpeaktwosnr,bppeaktwosnr,bpconfidencelrmssnr,bpconfidencehrmssnr,bpconfidencelpeaksnr,bpconfidencehpeaksnr,bpconfidencelpeaktwosnr,bpconfidencehpeaktwosnr,bpsemrms,bpstdrms,bprms,bpsempeakamp,bpstdpeakamp,bppeakamp,bpsempeaktwoamp,bpstdpeaktwoamp,bppeaktwoamp,bpconfidencelrms,bpconfidencehrms,bpconfidencelpeakamp,bpconfidencehpeakamp,bpconfidencelpeaktwoamp,bpconfidencehpeaktwoamp,rms,peakamp,peaktwoamp,trace,stdtrace,semtrace
 
 
-def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101",session=1):
+def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\\Record Node 101",session=1,lowpass=100, notch=50, reject_criteria = dict(eeg=300e-6), tmin=-0.04 ):
+    import time
+    if reject_criteria== "auto":
+        reject_criteria=None
+        autoreject= 1
     import mne  # this function cycles through all recordings for one recording session. b input is to tell where recordings'number starts from
     import pickle
     from glob import glob
@@ -783,32 +745,35 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021
         elif recording == 3:
             events[:, 0] += 45
 
-        raw = filtering(raw, notch=50, highpass=None, lowpass=None,
+        raw = filtering(raw, notch=notch, highpass=None, lowpass=None,
                         fir_window="hamming", fir_design="firwin")
-        raw = filtering(raw, notch=None, highpass=None, lowpass=100,
+        raw = filtering(raw, notch=None, highpass=None, lowpass=lowpass,
                         fir_window="hamming", fir_design="firwin")
-        epochs = mne.Epochs(raw, events, tmin=-0.04, reject=None, baseline=None, preload=True, flat=None, proj=False,
+        epochs = mne.Epochs(raw, events, tmin=tmin, reject=reject_criteria, baseline=None, preload=True, flat=None, proj=False,
                             reject_by_annotation=False)
-
-        # from autoreject import AutoReject  # import the autoreject module . all this stuff is functionally useless
-        # ar = AutoReject(n_interpolate=[3, 6, 12], random_state=42)
-        # epochs_ar, reject_log = ar.fit_transform(epochs, return_log=True)
+        if autoreject:
+            from autoreject import AutoReject  # import the autoreject module . all this stuff is functionally useless
+            ar = AutoReject(n_interpolate=[3, 6, 12], random_state=42)
+            epochs, reject_log = ar.fit_transform(epochs, return_log=True)
         # ica = mne.preprocessing.ICA(n_components=0.99, method="fastica")
         # ica.fit(epochs_ar)
         # ica_sources = ica.get_sources(epochs_ar)
         # rr = ica_sources._data
         # rrr = rr[:, :, :].mean(0)
         # byo = np.zeros((len(rrr)))
+        # byor = np.zeros((len(rrr)))
         # for i in range(0, len(rrr)):
         #     byo[i] = (max(rrr[i, 250:500]) - min(rrr[i, 250:500]))
+        #     byor[i] = (max(rrr[i, 500:]) - min(rrr[i, 500:]))
         # epochs_ica = ica.apply(epochs_ar, exclude=np.argwhere(byo == min(byo))[0])
 
         epochsdata = epochs._data
         bpsemrmssnr, bpstdrmssnr, bprmssnr, bpsempeaksnr, bpstdpeaksnr, bppeaksnr, bpsempeaktwosnr, bpstdpeaktwosnr, bppeaktwosnr, bpconfidencelrmssnr, bpconfidencehrmssnr, bpconfidencelpeaksnr, bpconfidencehpeaksnr, bpconfidencelpeaktwosnr, bpconfidencehpeaktwosnr, bpsemrms, bpstdrms, bprms, bpsempeakamp, bpstdpeakamp, bppeakamp, bpsempeaktwoamp, bpstdpeaktwoamp, bppeaktwoamp, bpconfidencelrms, bpconfidencehrms, bpconfidencelpeakamp, bpconfidencehpeakamp, bpconfidencelpeaktwoamp, bpconfidencehpeaktwoamp, rms, peakamp, peaktwoamp, trace, stdtrace, semtrace=Bootsrapper_snr(epochsdata)
         savedict={"bpsemrmssnr":bpsemrmssnr,"bpstdrmssnr":bpstdrmssnr,"bprmssnr":bprmssnr,"bpsempeaksnr":bpsempeaksnr,"bpstdpeaksnr":bpstdpeaksnr,"bppeaksnr":bppeaksnr,"bpsempeaktwosnr":bpsempeaktwosnr,"bpstdpeaktwosnr":bpstdpeaktwosnr,"bppeaktwosnr":bppeaktwosnr,"bpconfidencelrmssnr":bpconfidencelrmssnr, "bpconfidencehrmssnr":bpconfidencehrmssnr, "bpconfidencelpeaksnr":bpconfidencelpeaksnr,"bpconfidencehpeaksnr":bpconfidencehpeaksnr,"bpconfidencelpeaktwosnr":bpconfidencelpeaktwosnr,"bpconfidencehpeaktwosnr":bpconfidencehpeaktwosnr, "bpsemrms":bpsemrms,"bpstdrms":bpstdrms,"bprms":bprms,"bpsempeakamp":bpsempeakamp, "bpstdpeakamp":bpstdpeakamp, "bppeakamp":bppeakamp, "bpsempeaktwoamp":bpsempeaktwoamp, "bpstdpeaktwoamp":bpstdpeaktwoamp, "bppeaktwoamp":bppeaktwoamp, "bpconfidencelrms":bpconfidencelrms, "bpconfidencehrms":bpconfidencehrms, "bpconfidencelpeakamp":bpconfidencelpeakamp, "bpconfidencehpeakamp":bpconfidencehpeakamp, "bpconfidencelpeaktwoamp":bpconfidencelpeaktwoamp, "bpconfidencehpeaktwoamp":bpconfidencehpeaktwoamp, "rms":rms, "peakamp":peakamp, "peaktwoamp":peaktwoamp, "trace":trace,"stdtrace":stdtrace,"semtrace":semtrace}
-        with open(folder[45:70]+'_recording'+str(recording)+'.pickle', 'wb') as handle:
+        with open(folder[45:70]+'_bootstrapOGsnr_&_amp_recording'+str(recording)+'_'+str(time.time())[:8]+'.pickle', 'wb') as handle:
             pickle.dump(savedict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+        with open(folder[45:70]+'_reject_log_recording'+str(recording)+'_'+str(time.time())[:8]+'.pickle', 'wb') as handle:
+            pickle.dump(reject_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
         # indexo, filenamex, soa, stimdur, mean, data, datar, triggers, timestamps, sfreq = loadOep(folder, session,
         #                                                                                           recording)  # get data
         #
@@ -891,7 +856,7 @@ def run_pipeline_n1(folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021
 # run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-09_15-43-32_m0004\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)#
 # run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOAMMNSOA_2020-12-01_14-09-21_m0003\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=2)
 # run_pipeline_n1(folder="Z:\\Alessandro_Braga\\n1data from MEA and TDT, first round\mea\SOANONSOA_2020-11-16_15-14-52_m0002\Record Node 101",session=1,out_folder='C:\\Users\PC\Desktop\mea_anal',b=1)
-run_pipeline_n1(folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101",session=1)#
+#run_pipeline_n1(folder = "Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101",session=1)#
 # folder="Z:\\Alessandro_Braga\\MEA data february\\feb_n1_2021-02-26_16-35-13_m0002\Record Node 101"
 # indexo,filenamex,soa, stimdur,mean,data,datar,triggers,timestamps,sfreq,oldfreq=loadOep(folder, session=1, recording=3)#get data
 #
